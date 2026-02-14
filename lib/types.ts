@@ -73,8 +73,15 @@ export type MealSelection = {
 
 export type DailySelections = {
   meals: Partial<Record<MealType, MealSelection>>;
+  dailyMenu?: {
+    selectedDayOptionId?: string;
+    done?: boolean;
+    note?: string;
+    updatedAtISO?: string;
+  };
   workout?: {
     doneExerciseIndexes: number[];
+    lastWeightByExerciseIndex?: Record<string, string>;
     note?: string;
     updatedAtISO?: string;
   };

@@ -57,11 +57,30 @@ function isDailySelections(value: unknown): value is DailySelections {
     if (!isMealSelection(value.meals[mealType])) return false;
   }
 
+  if (value.dailyMenu !== undefined) {
+    if (!isRecord(value.dailyMenu)) return false;
+    if (value.dailyMenu.selectedDayOptionId !== undefined && !isString(value.dailyMenu.selectedDayOptionId)) {
+      return false;
+    }
+    if (value.dailyMenu.done !== undefined && typeof value.dailyMenu.done !== "boolean") return false;
+    if (value.dailyMenu.note !== undefined && !isString(value.dailyMenu.note)) return false;
+    if (value.dailyMenu.updatedAtISO !== undefined && !isIsoDateTime(value.dailyMenu.updatedAtISO)) {
+      return false;
+    }
+  }
+
   if (value.workout !== undefined) {
     if (!isRecord(value.workout)) return false;
     if (!Array.isArray(value.workout.doneExerciseIndexes)) return false;
     if (!value.workout.doneExerciseIndexes.every((n) => Number.isInteger(n) && n >= 0)) {
       return false;
+    }
+    if (value.workout.lastWeightByExerciseIndex !== undefined) {
+      if (!isRecord(value.workout.lastWeightByExerciseIndex)) return false;
+      for (const [key, weightValue] of Object.entries(value.workout.lastWeightByExerciseIndex)) {
+        if (!/^\d+$/.test(key)) return false;
+        if (!isString(weightValue)) return false;
+      }
     }
     if (value.workout.note !== undefined && !isString(value.workout.note)) return false;
     if (value.workout.updatedAtISO !== undefined && !isIsoDateTime(value.workout.updatedAtISO)) {

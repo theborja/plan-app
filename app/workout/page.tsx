@@ -22,15 +22,35 @@ function formatRest(restSeconds?: number | null): string {
   return sec === 0 ? `${min}min` : `${min}min ${sec}s`;
 }
 
+function getMostRecentWeightEntry(raw: string | undefined | null): string {
+  if (!raw) return "";
+  const entries = raw
+    .split("|")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  if (entries.length === 0) return "";
+  return entries[entries.length - 1];
+}
+
+function addDays(isoDate: string, amount: number): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(year, (month ?? 1) - 1, day ?? 1);
+  date.setDate(date.getDate() + amount);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export default function WorkoutPage() {
   const [plan, setPlan] = useState<PlanV1 | null>(null);
   const [settings, setSettings] = useState<SettingsV1 | null>(null);
   const [selections, setSelections] = useState<SelectionsV1 | null>(null);
+  const [selectedIsoDate, setSelectedIsoDate] = useState<string>(getLocalISODate());
 
-  const isoDate = getLocalISODate();
-  const dayOfWeek = getDayOfWeek(isoDate);
+  const dayOfWeek = getDayOfWeek(selectedIsoDate);
   const trainingToday = isTrainingDay(dayOfWeek);
-  const nextTraining = getNextTrainingDay(isoDate);
+  const nextTraining = getNextTrainingDay(selectedIsoDate);
 
   useEffect(() => {
     setPlan(loadPlanV1());
@@ -48,10 +68,16 @@ export default function WorkoutPage() {
     );
   }, [plan, settings, trainingToday, dayOfWeek]);
 
-  const doneIndexes = selections?.byDate?.[isoDate]?.workout?.doneExerciseIndexes ?? [];
-  const workoutNote = selections?.byDate?.[isoDate]?.workout?.note ?? "";
+  const doneIndexes = selections?.byDate?.[selectedIsoDate]?.workout?.doneExerciseIndexes ?? [];
+  const lastWeightByExerciseIndex =
+    selections?.byDate?.[selectedIsoDate]?.workout?.lastWeightByExerciseIndex ?? {};
+  const workoutNote = selections?.byDate?.[selectedIsoDate]?.workout?.note ?? "";
 
-  function updateWorkout(nextDoneIndexes: number[], nextNote = workoutNote) {
+  function updateWorkout(patch: {
+    doneExerciseIndexes?: number[];
+    note?: string;
+    lastWeightByExerciseIndex?: Record<string, string>;
+  }) {
     if (!selections) return;
 
     const next: SelectionsV1 = {
@@ -59,12 +85,17 @@ export default function WorkoutPage() {
       byDate: { ...selections.byDate },
     };
 
-    const currentDay = next.byDate[isoDate] ?? { meals: {} };
-    next.byDate[isoDate] = {
+    const currentDay = next.byDate[selectedIsoDate] ?? { meals: {} };
+    const currentWorkout = currentDay.workout ?? { doneExerciseIndexes: [] };
+    next.byDate[selectedIsoDate] = {
       ...currentDay,
       workout: {
-        doneExerciseIndexes: [...nextDoneIndexes].sort((a, b) => a - b),
-        note: nextNote,
+        doneExerciseIndexes: [
+          ...(patch.doneExerciseIndexes ?? currentWorkout.doneExerciseIndexes),
+        ].sort((a, b) => a - b),
+        note: patch.note ?? currentWorkout.note,
+        lastWeightByExerciseIndex:
+          patch.lastWeightByExerciseIndex ?? currentWorkout.lastWeightByExerciseIndex ?? {},
         updatedAtISO: new Date().toISOString(),
       },
     };
@@ -90,15 +121,48 @@ export default function WorkoutPage() {
     );
   }
 
+  const dayPicker = (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        className="rounded-lg bg-zinc-200 px-2 py-1 text-xs font-medium text-zinc-800"
+        onClick={() => setSelectedIsoDate((prev) => addDays(prev, -1))}
+      >
+        Dia anterior
+      </button>
+      <button
+        type="button"
+        className="rounded-lg bg-zinc-200 px-2 py-1 text-xs font-medium text-zinc-800"
+        onClick={() => setSelectedIsoDate((prev) => addDays(prev, 1))}
+      >
+        Dia siguiente
+      </button>
+      <input
+        type="date"
+        className="ml-auto rounded-lg border border-zinc-300 px-2 py-1 text-xs"
+        value={selectedIsoDate}
+        onChange={(event) => {
+          if (!event.target.value) return;
+          setSelectedIsoDate(event.target.value);
+        }}
+      />
+    </div>
+  );
+
   if (!trainingToday) {
     return (
       <div className="space-y-4">
+        <Card title="Fecha de consulta">{dayPicker}</Card>
         <Card title="Entreno de hoy">
           <p className="text-sm font-medium text-zinc-900">Descanso</p>
           <p className="mt-2 text-sm text-zinc-600">
             Proximo entreno: {formatDayLabel(nextTraining.isoDate)} ({nextTraining.dayOfWeek})
           </p>
         </Card>
+        <EmptyState
+          title="El musculo crece en el descanso"
+          description="Descansar es importante, amigo."
+        />
       </div>
     );
   }
@@ -118,7 +182,8 @@ export default function WorkoutPage() {
   return (
     <div className="space-y-4">
       <Card title={trainingDay.label}>
-        <p className="text-sm text-zinc-600">{formatDayLabel(isoDate)}</p>
+        <p className="text-sm text-zinc-600">{formatDayLabel(selectedIsoDate)}</p>
+        <div className="mt-2">{dayPicker}</div>
         <p className="mt-1 text-sm text-zinc-700">
           Hechos: {doneIndexes.length}/{trainingDay.exercises.length}
         </p>
@@ -126,6 +191,10 @@ export default function WorkoutPage() {
 
       {trainingDay.exercises.map((exercise, index) => {
         const isDone = doneIndexes.includes(index);
+        const exerciseKey = String(index);
+        const storedWeight = lastWeightByExerciseIndex[exerciseKey];
+        const fallbackMostRecent = getMostRecentWeightEntry(exercise.notes);
+        const lastWeightValue = storedWeight ?? fallbackMostRecent;
         return (
           <Card key={exercise.id || `${trainingDay.dayIndex}-${index}`}>
             <div className="space-y-2">
@@ -137,9 +206,13 @@ export default function WorkoutPage() {
                     checked={isDone}
                     onChange={(event) => {
                       if (event.target.checked) {
-                        updateWorkout([...doneIndexes, index]);
+                        updateWorkout({ doneExerciseIndexes: [...doneIndexes, index] });
                       } else {
-                        updateWorkout(doneIndexes.filter((doneIndex) => doneIndex !== index));
+                        updateWorkout({
+                          doneExerciseIndexes: doneIndexes.filter(
+                            (doneIndex) => doneIndex !== index,
+                          ),
+                        });
                       }
                     }}
                   />
@@ -155,7 +228,33 @@ export default function WorkoutPage() {
                 </p>
               </div>
 
-              {exercise.notes ? <p className="text-xs text-zinc-500">{exercise.notes}</p> : null}
+              <div className="space-y-1">
+                <label
+                  htmlFor={`last-weight-${index}`}
+                  className="text-xs font-medium text-zinc-700"
+                >
+                  Ultimo peso usado
+                </label>
+                <input
+                  id={`last-weight-${index}`}
+                  type="text"
+                  inputMode="decimal"
+                  className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm"
+                  placeholder="Ej: 60 kg"
+                  value={lastWeightValue}
+                  onChange={(event) => {
+                    const nextWeights = {
+                      ...lastWeightByExerciseIndex,
+                      [exerciseKey]: event.target.value,
+                    };
+                    updateWorkout({ lastWeightByExerciseIndex: nextWeights });
+                  }}
+                />
+              </div>
+
+              {exercise.notes && !exercise.notes.includes("|") ? (
+                <p className="text-xs text-zinc-500">{exercise.notes}</p>
+              ) : null}
             </div>
           </Card>
         );
@@ -166,7 +265,7 @@ export default function WorkoutPage() {
           className="min-h-24 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
           placeholder="Como te fue hoy..."
           value={workoutNote}
-          onChange={(event) => updateWorkout(doneIndexes, event.target.value)}
+          onChange={(event) => updateWorkout({ note: event.target.value })}
         />
       </Card>
     </div>

@@ -5,8 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import BottomSheet from "@/components/BottomSheet";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
-import { formatDayLabel, getLocalISODate } from "@/lib/date";
-import { resolveNutritionDay } from "@/lib/planResolver";
+import { formatDayLabel, getLocalISODate, getNutritionWeekIndex } from "@/lib/date";
 import {
   defaultSelectionsV1,
   loadPlanV1,
@@ -14,7 +13,7 @@ import {
   loadSettingsV1,
   saveSelectionsV1,
 } from "@/lib/storage";
-import type { MealSelection, MealType, PlanV1, SelectionsV1, SettingsV1 } from "@/lib/types";
+import type { DayOfWeek, MealType, PlanV1, SelectionsV1, SettingsV1 } from "@/lib/types";
 
 const MEAL_TYPES: MealType[] = [
   "DESAYUNO",
@@ -25,11 +24,21 @@ const MEAL_TYPES: MealType[] = [
   "POSTRE",
 ];
 
+const DAY_ORDER: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+type DailyMenuOption = {
+  optionId: string;
+  optionLabel: string;
+  sourceDayOfWeek: DayOfWeek;
+  meals: Array<{ mealType: MealType; lines: string[] }>;
+};
+
 export default function TodayPage() {
   const [plan, setPlan] = useState<PlanV1 | null>(null);
   const [settings, setSettings] = useState<SettingsV1 | null>(null);
   const [selections, setSelections] = useState<SelectionsV1>(defaultSelectionsV1());
-  const [openMealType, setOpenMealType] = useState<MealType | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [hoveredOptionId, setHoveredOptionId] = useState<string | null>(null);
 
   const isoDate = getLocalISODate();
 
@@ -47,28 +56,45 @@ export default function TodayPage() {
     return () => window.clearTimeout(timer);
   }, [plan]);
 
-  const nutritionDay = useMemo(() => {
+  const dailyMenuOptions = useMemo(() => {
     if (!plan || !settings) return null;
-    return resolveNutritionDay(plan, isoDate, settings);
+    const weekIndex = getNutritionWeekIndex(isoDate, settings.nutritionStartDateISO, 2);
+    const weekDays = plan.nutrition.days
+      .filter((day) => day.weekIndex === weekIndex)
+      .sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek));
+
+    return weekDays.map((day, index) => {
+      const meals = MEAL_TYPES.map((mealType) => {
+        const allLines = (day.meals[mealType] ?? [])
+          .flatMap((option) => option.lines)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0);
+        return {
+          mealType,
+          lines: allLines,
+        };
+      }).filter((meal) => meal.lines.length > 0);
+
+      return {
+        optionId: `${weekIndex}-${day.dayOfWeek}`,
+        optionLabel: `Opcion ${index + 1}`,
+        sourceDayOfWeek: day.dayOfWeek,
+        meals,
+      };
+    });
   }, [plan, settings, isoDate]);
 
-  const mealsForToday = useMemo(() => {
-    if (!nutritionDay) return [];
-    return MEAL_TYPES.map((mealType) => ({
-      mealType,
-      options: nutritionDay.meals[mealType] ?? [],
-    })).filter((meal) => meal.options.length > 0);
-  }, [nutritionDay]);
+  const daySelection = selections.byDate[isoDate];
+  const selectedDailyMenuOptionId = daySelection?.dailyMenu?.selectedDayOptionId;
+  const selectedDailyMenuOption = dailyMenuOptions?.find(
+    (option) => option.optionId === selectedDailyMenuOptionId,
+  );
 
-  const daySelections = selections.byDate[isoDate]?.meals ?? {};
-
-  function getSelectedOption(mealType: MealType) {
-    const selectedOptionId = daySelections[mealType]?.selectedOptionId;
-    if (!selectedOptionId || !nutritionDay) return null;
-    return nutritionDay.meals[mealType].find((option) => option.optionId === selectedOptionId) ?? null;
-  }
-
-  function updateMealSelection(mealType: MealType, patch: Partial<MealSelection>) {
+  function updateDailyMenuSelection(patch: {
+    selectedDayOptionId?: string;
+    done?: boolean;
+    note?: string;
+  }) {
     setSelections((prev) => {
       const next: SelectionsV1 = {
         ...prev,
@@ -76,16 +102,16 @@ export default function TodayPage() {
       };
 
       const currentDay = next.byDate[isoDate] ?? { meals: {} };
-      const currentMeal = currentDay.meals[mealType] ?? {};
 
       next.byDate[isoDate] = {
+        ...currentDay,
         meals: {
           ...currentDay.meals,
-          [mealType]: {
-            ...currentMeal,
-            ...patch,
-            updatedAtISO: new Date().toISOString(),
-          },
+        },
+        dailyMenu: {
+          ...currentDay.dailyMenu,
+          ...patch,
+          updatedAtISO: new Date().toISOString(),
         },
       };
 
@@ -94,9 +120,9 @@ export default function TodayPage() {
     });
   }
 
-  const totalMeals = mealsForToday.length;
-  const selectedCount = mealsForToday.filter((meal) => !!getSelectedOption(meal.mealType)).length;
-  const doneCount = mealsForToday.filter((meal) => daySelections[meal.mealType]?.done === true).length;
+  const totalMenus = dailyMenuOptions?.length ?? 0;
+  const selectedCount = selectedDailyMenuOption ? 1 : 0;
+  const doneCount = daySelection?.dailyMenu?.done ? 1 : 0;
 
   if (!plan) {
     return (
@@ -115,12 +141,12 @@ export default function TodayPage() {
     );
   }
 
-  if (!nutritionDay) {
+  if (!dailyMenuOptions || dailyMenuOptions.length === 0) {
     return (
       <div className="space-y-4">
         <Card title="Hoy">
           <p className="text-sm text-zinc-600">
-            No se pudo resolver el dia nutricional para {formatDayLabel(isoDate)}.
+            No hay opciones de menu disponibles para {formatDayLabel(isoDate)}.
           </p>
         </Card>
       </div>
@@ -133,98 +159,120 @@ export default function TodayPage() {
         <div className="space-y-1 text-sm text-zinc-700">
           <p className="font-medium text-zinc-900">{formatDayLabel(isoDate)}</p>
           <p>
-            Comidas seleccionadas: {selectedCount}/{totalMeals}
+            Menus seleccionados: {selectedCount}/1
           </p>
           <p>
-            Comidas hechas: {doneCount}/{totalMeals}
+            Menus hechos: {doneCount}/1
           </p>
+          <p className="text-xs text-zinc-500">Opciones disponibles esta semana: {totalMenus}</p>
         </div>
       </Card>
 
-      {mealsForToday.map(({ mealType, options }) => {
-        const mealSelection = daySelections[mealType];
-        const selectedOption = getSelectedOption(mealType);
+      <Card title="Menu completo del dia">
+        <div className="space-y-3">
+          {selectedDailyMenuOption ? (
+            <div className="rounded-xl bg-zinc-100 p-3">
+              <p className="text-sm font-semibold text-zinc-900">
+                {selectedDailyMenuOption.optionLabel}
+              </p>
+              <p className="text-xs text-zinc-500">
+                Basado en columna {selectedDailyMenuOption.sourceDayOfWeek}
+              </p>
+              <ul className="mt-2 space-y-2 text-xs text-zinc-700">
+                {selectedDailyMenuOption.meals.map((meal) => (
+                  <li key={meal.mealType}>
+                    <p className="font-medium text-zinc-900">{meal.mealType}</p>
+                    <p>{meal.lines.join(" | ")}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">Sin menu seleccionado.</p>
+          )}
 
-        return (
-          <Card key={mealType} title={mealType}>
-            <div className="space-y-3">
-              {selectedOption ? (
-                <div className="rounded-xl bg-zinc-100 p-3">
-                  <p className="text-sm font-medium text-zinc-900">{selectedOption.title}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="rounded-xl bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
+              onClick={() => setIsSheetOpen(true)}
+            >
+              Elegir menu
+            </button>
+            <button
+              type="button"
+              className={[
+                "rounded-xl px-3 py-2 text-sm font-medium",
+                daySelection?.dailyMenu?.done ? "bg-emerald-600 text-white" : "bg-zinc-200 text-zinc-800",
+              ].join(" ")}
+              onClick={() =>
+                updateDailyMenuSelection({
+                  done: !daySelection?.dailyMenu?.done,
+                })
+              }
+            >
+              {daySelection?.dailyMenu?.done ? "Hecho" : "Marcar hecho"}
+            </button>
+          </div>
+
+          <textarea
+            className="min-h-20 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+            placeholder="Nota del menu diario"
+            value={daySelection?.dailyMenu?.note ?? ""}
+            onChange={(event) => updateDailyMenuSelection({ note: event.target.value })}
+          />
+        </div>
+      </Card>
+
+      <BottomSheet open={isSheetOpen} title="Elegir menu diario" onClose={() => setIsSheetOpen(false)}>
+        <div className="space-y-2">
+          {dailyMenuOptions.map((option) => (
+            <div
+              key={option.optionId}
+              className="relative"
+              onMouseEnter={() => setHoveredOptionId(option.optionId)}
+              onMouseLeave={() => setHoveredOptionId((current) => (current === option.optionId ? null : current))}
+            >
+              <button
+                type="button"
+                className={[
+                  "w-full rounded-xl border px-3 py-2 text-left",
+                  selectedDailyMenuOptionId === option.optionId
+                    ? "border-zinc-900 bg-zinc-100"
+                    : "border-zinc-300 bg-white",
+                ].join(" ")}
+                onClick={() => {
+                  updateDailyMenuSelection({ selectedDayOptionId: option.optionId });
+                  setIsSheetOpen(false);
+                }}
+              >
+                <p className="text-sm font-medium text-zinc-900">{option.optionLabel}</p>
+                <p className="text-xs text-zinc-500">Columna origen: {option.sourceDayOfWeek}</p>
+                <p className="mt-1 text-xs text-zinc-600">
+                  {option.meals
+                    .slice(0, 3)
+                    .map((meal) => `${meal.mealType}: ${meal.lines[0] ?? ""}`)
+                    .join(" | ")}
+                </p>
+              </button>
+
+              {hoveredOptionId === option.optionId ? (
+                <div className="pointer-events-none absolute left-2 right-2 top-[calc(100%+0.35rem)] z-20 hidden rounded-xl border border-zinc-300 bg-white p-3 shadow-lg md:block">
+                  <p className="text-xs font-semibold text-zinc-900">Vista completa</p>
                   <ul className="mt-2 space-y-1 text-xs text-zinc-700">
-                    {selectedOption.lines.map((line, idx) => (
-                      <li key={`${selectedOption.optionId}-${idx}`}>- {line}</li>
+                    {option.meals.map((meal) => (
+                      <li key={`${option.optionId}-${meal.mealType}`}>
+                        <span className="font-medium text-zinc-900">{meal.mealType}: </span>
+                        <span>{meal.lines.join(" | ")}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
-              ) : (
-                <p className="text-sm text-zinc-500">Sin opcion seleccionada.</p>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="rounded-xl bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
-                  onClick={() => setOpenMealType(mealType)}
-                >
-                  Elegir
-                </button>
-                <button
-                  type="button"
-                  className={[
-                    "rounded-xl px-3 py-2 text-sm font-medium",
-                    mealSelection?.done
-                      ? "bg-emerald-600 text-white"
-                      : "bg-zinc-200 text-zinc-800",
-                  ].join(" ")}
-                  onClick={() => updateMealSelection(mealType, { done: !mealSelection?.done })}
-                >
-                  {mealSelection?.done ? "Hecho" : "Marcar hecho"}
-                </button>
-              </div>
-
-              <textarea
-                className="min-h-20 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                placeholder="Nota de esta comida"
-                value={mealSelection?.note ?? ""}
-                onChange={(event) => updateMealSelection(mealType, { note: event.target.value })}
-              />
+              ) : null}
             </div>
-
-            <BottomSheet
-              open={openMealType === mealType}
-              title={`Opciones - ${mealType}`}
-              onClose={() => setOpenMealType(null)}
-            >
-              <div className="space-y-2">
-                {options.map((option) => (
-                  <button
-                    key={option.optionId}
-                    type="button"
-                    className={[
-                      "w-full rounded-xl border px-3 py-2 text-left",
-                      mealSelection?.selectedOptionId === option.optionId
-                        ? "border-zinc-900 bg-zinc-100"
-                        : "border-zinc-300 bg-white",
-                    ].join(" ")}
-                    onClick={() => {
-                      updateMealSelection(mealType, {
-                        selectedOptionId: option.optionId,
-                      });
-                      setOpenMealType(null);
-                    }}
-                  >
-                    <p className="text-sm font-medium text-zinc-900">{option.title}</p>
-                    <p className="mt-1 text-xs text-zinc-600">
-                      {option.lines.slice(0, 3).join(" | ")}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </BottomSheet>
-          </Card>
-        );
-      })}
+          ))}
+        </div>
+      </BottomSheet>
     </div>
   );
 }
