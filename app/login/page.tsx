@@ -29,20 +29,20 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-env(safe-area-inset-top))] w-full max-w-md flex-col justify-center pb-[max(1rem,env(safe-area-inset-bottom))]">
-      <p className="mb-8 text-center text-3xl font-semibold text-blue-600">FitPlan</p>
+      <p className="mb-8 text-center text-3xl font-semibold text-[var(--foreground)]">FitPlan</p>
 
-      <section className="w-full rounded-3xl bg-white p-6 shadow-xl">
-        <h1 className="text-center text-3xl font-bold text-zinc-900">Welcome back</h1>
-        <p className="mt-2 text-center text-sm text-zinc-500">Log in to continue</p>
+      <section className="w-full rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-soft)]">
+        <h1 className="text-center text-3xl font-bold text-[var(--foreground)]">Welcome back</h1>
+        <p className="mt-2 text-center text-sm text-[var(--muted)]">Log in to continue</p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-zinc-700">Email</span>
+            <span className="mb-1 block text-sm font-medium text-[var(--muted)]">Email</span>
             <input
               autoFocus
               type="text"
               className={[
-                "w-full rounded-xl bg-gray-100 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500",
+                "w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:ring-2 focus:ring-blue-500",
                 error ? "ring-1 ring-rose-400" : "",
               ].join(" ")}
               placeholder="admin"
@@ -52,11 +52,11 @@ export default function LoginPage() {
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-zinc-700">Password</span>
+            <span className="mb-1 block text-sm font-medium text-[var(--muted)]">Password</span>
             <input
               type="password"
               className={[
-                "w-full rounded-xl bg-gray-100 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500",
+                "w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:ring-2 focus:ring-blue-500",
                 error ? "ring-1 ring-rose-400" : "",
               ].join(" ")}
               placeholder="admin"

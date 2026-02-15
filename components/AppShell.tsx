@@ -54,7 +54,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
       {isLogin ? (
-        <main className="min-h-dvh bg-[#eceff4] px-4 py-[max(1rem,env(safe-area-inset-top))]">{children}</main>
+        <main className="min-h-dvh bg-[var(--background)] px-4 py-[max(1rem,env(safe-area-inset-top))]">{children}</main>
       ) : (
         <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-transparent">
           <Header />

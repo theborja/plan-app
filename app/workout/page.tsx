@@ -150,7 +150,7 @@ export default function WorkoutPage() {
       </button>
       <input
         type="date"
-        className="ml-auto rounded-lg border border-zinc-300 px-2 py-1 text-xs"
+        className="ml-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--foreground)]"
         value={selectedIsoDate}
         onChange={(event) => {
           if (!event.target.value) return;
@@ -182,7 +182,7 @@ export default function WorkoutPage() {
     return (
       <div className="space-y-4">
         <Card title="Entreno de hoy">
-          <p className="text-sm text-zinc-600">
+          <p className="text-sm text-[var(--muted)]">
             No se encontro rutina para hoy. Revisa el plan importado.
           </p>
         </Card>
@@ -215,7 +215,7 @@ export default function WorkoutPage() {
           </label>
         </div>
         <div className="mt-2">{dayPicker}</div>
-        <p className="mt-1 text-sm text-zinc-700">
+        <p className="mt-1 text-sm text-[var(--muted)]">
           Hechos: {doneIndexes.length}/{trainingDay.exercises.length}
         </p>
       </Card>
@@ -230,8 +230,8 @@ export default function WorkoutPage() {
           <Card key={exercise.id || `${trainingDay.dayIndex}-${index}`}>
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-semibold text-zinc-900">{exercise.name}</p>
-                <label className="flex items-center gap-2 text-xs text-zinc-700">
+                <p className="text-sm font-semibold text-[var(--foreground)]">{exercise.name}</p>
+                <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
                   <input
                     type="checkbox"
                     checked={isDone}
@@ -266,7 +266,7 @@ export default function WorkoutPage() {
               <div className="space-y-1">
                 <label
                   htmlFor={`last-weight-${index}`}
-                  className="text-xs font-medium text-zinc-700"
+                  className="text-xs font-medium text-[var(--muted)]"
                 >
                   Ultimo peso usado
                 </label>
@@ -274,7 +274,7 @@ export default function WorkoutPage() {
                   id={`last-weight-${index}`}
                   type="text"
                   inputMode="decimal"
-                  className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm text-[var(--foreground)]"
                   placeholder="Ej: 60 kg"
                   value={lastWeightValue}
                   onChange={(event) => {
@@ -288,7 +288,7 @@ export default function WorkoutPage() {
               </div>
 
               {exercise.notes && !exercise.notes.includes("|") ? (
-                <p className="text-xs text-zinc-500">{exercise.notes}</p>
+                <p className="text-xs text-[var(--muted)]">{exercise.notes}</p>
               ) : null}
             </div>
           </Card>
@@ -297,7 +297,7 @@ export default function WorkoutPage() {
 
       <Card title="Nota del entreno">
         <textarea
-          className="min-h-24 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+          className="min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]"
           placeholder="Como te fue hoy..."
           value={workoutNote}
           onChange={(event) => updateWorkout({ note: event.target.value })}
