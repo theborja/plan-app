@@ -190,10 +190,30 @@ export default function WorkoutPage() {
     );
   }
 
+  const allDone = trainingDay.exercises.length > 0 && doneIndexes.length === trainingDay.exercises.length;
+
   return (
     <div className="space-y-4">
       <Card title={trainingDay.label}>
-        <p className="text-sm text-[var(--muted)]">{formatDayLabel(selectedIsoDate)}</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-[var(--muted)]">{formatDayLabel(selectedIsoDate)}</p>
+          <label className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)]">
+            <input
+              type="checkbox"
+              checked={allDone}
+              onChange={(event) => {
+                if (event.target.checked) {
+                  updateWorkout({
+                    doneExerciseIndexes: trainingDay.exercises.map((_, idx) => idx),
+                  });
+                } else {
+                  updateWorkout({ doneExerciseIndexes: [] });
+                }
+              }}
+            />
+            Marcar todo
+          </label>
+        </div>
         <div className="mt-2">{dayPicker}</div>
         <p className="mt-1 text-sm text-zinc-700">
           Hechos: {doneIndexes.length}/{trainingDay.exercises.length}

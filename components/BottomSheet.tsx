@@ -47,11 +47,12 @@ export default function BottomSheet({
           <h3 className="text-base font-semibold text-[var(--foreground)]">{title ?? "Panel"}</h3>
           <button
             type="button"
-            className="rounded-lg bg-[var(--surface-soft)] px-3 py-1.5 text-sm text-[var(--muted)]"
+            className="h-8 w-8 rounded-full bg-[var(--surface-soft)] text-lg leading-none text-[var(--muted)]"
             onClick={onClose}
             ref={closeButtonRef}
-            >
-            Cerrar
+            aria-label="Cerrar"
+          >
+            x
           </button>
         </div>
         <div>{children}</div>

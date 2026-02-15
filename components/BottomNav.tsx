@@ -4,11 +4,45 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const tabs = [
-  { href: "/today", label: "Hoy", icon: "Home" },
-  { href: "/workout", label: "Entreno", icon: "Move" },
-  { href: "/import", label: "Importar", icon: "Upload" },
-  { href: "/settings", label: "Ajustes", icon: "Tune" },
+  { href: "/today", label: "Hoy", icon: "home" },
+  { href: "/workout", label: "Entreno", icon: "dumbbell" },
+  { href: "/import", label: "Importar", icon: "file" },
+  { href: "/settings", label: "Ajustes", icon: "settings" },
 ];
+
+function Icon({ name }: { name: string }) {
+  const common = "h-4 w-4";
+  if (name === "home") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
+        <path d="M3 10.5L12 3l9 7.5" />
+        <path d="M5 9.5V21h14V9.5" />
+      </svg>
+    );
+  }
+  if (name === "dumbbell") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
+        <path d="M3 9v6M6 7v10M18 7v10M21 9v6" />
+        <path d="M6 12h12" />
+      </svg>
+    );
+  }
+  if (name === "file") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
+        <path d="M7 3h7l5 5v13H7z" />
+        <path d="M14 3v6h6" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
+      <path d="M12 3v3M12 18v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M3 12h3M18 12h3M4.9 19.1L7 17M17 7l2.1-2.1" />
+      <circle cx="12" cy="12" r="4" />
+    </svg>
+  );
+}
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -30,7 +64,9 @@ export default function BottomNav() {
                     : "bg-[var(--surface-soft)] text-[var(--muted)] hover:bg-white",
                 ].join(" ")}
               >
-                <span className="text-[10px] leading-none">{tab.icon}</span>
+                <span className="mb-0.5 leading-none">
+                  <Icon name={tab.icon} />
+                </span>
                 {tab.label}
               </Link>
             </li>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import BottomNav from "@/components/BottomNav";
 import PlanBootstrap from "@/components/PlanBootstrap";
+import ThemeToggle from "@/components/ThemeToggle";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -42,9 +43,12 @@ export default function RootLayout({
             </p>
             <div className="mt-1 flex items-end justify-between gap-3">
               <h1 className="text-xl font-bold text-[var(--foreground)]">Mi Plan</h1>
-              <p className="rounded-full bg-[var(--surface-soft)] px-2 py-1 text-xs capitalize text-[var(--muted)]">
-                {todayLabel}
-              </p>
+              <div className="flex flex-col items-end gap-1">
+                <ThemeToggle />
+                <p className="rounded-full bg-[var(--surface-soft)] px-2 py-1 text-xs capitalize text-[var(--muted)]">
+                  {todayLabel}
+                </p>
+              </div>
             </div>
           </header>
 

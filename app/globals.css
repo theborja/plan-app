@@ -17,6 +17,16 @@
   --shadow-soft: 0 8px 20px rgba(26, 40, 68, 0.08);
 }
 
+[data-theme="dark"] {
+  --background: #0d1324;
+  --surface: #121a2f;
+  --surface-soft: #1a2440;
+  --foreground: #e6ebff;
+  --muted: #a6b1d3;
+  --border: #2a365a;
+  --shadow-soft: 0 8px 20px rgba(2, 6, 20, 0.45);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -33,6 +43,13 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), sans-serif;
   line-height: 1.45;
+}
+
+[data-theme="dark"] body {
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(138, 120, 242, 0.22) 0%, transparent 45%),
+    radial-gradient(80% 70% at 100% 0%, rgba(76, 175, 80, 0.12) 0%, transparent 38%),
+    var(--background);
 }
 
 @keyframes fadeInLift {
