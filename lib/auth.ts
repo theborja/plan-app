@@ -76,7 +76,10 @@ export function isCurrentUserAdmin(): boolean {
 }
 
 export function loginLocal(email: string, password: string): { ok: true } | { ok: false } {
-  const matched = getLocalUsers().find((user) => user.email === email && user.password === password);
+  const normalizedEmail = email.trim().toLowerCase();
+  const matched = getLocalUsers().find(
+    (user) => user.email.trim().toLowerCase() === normalizedEmail && user.password === password,
+  );
   if (!matched || typeof window === "undefined") {
     return { ok: false };
   }

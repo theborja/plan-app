@@ -35,7 +35,6 @@ export default function PlanBootstrap() {
         const buffer = await response.arrayBuffer();
         const parsed = parseArrayBufferToPlanV1(buffer, "default-plan.xlsx");
         savePlanV1(parsed);
-        setMessage("Plan base cargado");
       } catch (error) {
         const text = error instanceof Error ? error.message : "Error desconocido";
         setMessage(`Error cargando plan base: ${text}`);
@@ -50,7 +49,7 @@ export default function PlanBootstrap() {
   }
 
   return (
-    <div className="mx-4 mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+    <div className="mx-4 mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
       {message}
     </div>
   );
