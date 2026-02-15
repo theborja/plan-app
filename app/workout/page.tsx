@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
+import Skeleton from "@/components/Skeleton";
 import {
   formatDayLabel,
   getDayOfWeek,
@@ -47,6 +48,7 @@ export default function WorkoutPage() {
   const [settings, setSettings] = useState<SettingsV1 | null>(null);
   const [selections, setSelections] = useState<SelectionsV1 | null>(null);
   const [selectedIsoDate, setSelectedIsoDate] = useState<string>(getLocalISODate());
+  const [isLoading, setIsLoading] = useState(true);
 
   const dayOfWeek = getDayOfWeek(selectedIsoDate);
   const trainingToday = isTrainingDay(dayOfWeek);
@@ -56,6 +58,7 @@ export default function WorkoutPage() {
     setPlan(loadPlanV1());
     setSettings(loadSettingsV1());
     setSelections(loadSelectionsV1());
+    setIsLoading(false);
   }, []);
 
   const trainingDay = useMemo(() => {
@@ -107,16 +110,24 @@ export default function WorkoutPage() {
   if (!plan) {
     return (
       <div className="space-y-4">
-        <EmptyState
-          title="No hay plan cargado"
-          description="Importa un plan para ver tu entrenamiento."
-        />
-        <Link
-          href="/import"
-          className="inline-flex rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-        >
-          Ir a importar
-        </Link>
+        {isLoading ? (
+          <Card title="Cargando plan">
+            <Skeleton lines={4} />
+          </Card>
+        ) : (
+          <EmptyState
+            title="No hay plan cargado"
+            description="Importa un plan para ver tu entrenamiento."
+            action={
+              <Link
+                href="/import"
+                className="inline-flex rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-4 py-2 text-sm font-semibold text-white"
+              >
+                Ir a importar
+              </Link>
+            }
+          />
+        )}
       </div>
     );
   }
@@ -125,14 +136,14 @@ export default function WorkoutPage() {
     <div className="flex items-center gap-2">
       <button
         type="button"
-        className="rounded-lg bg-zinc-200 px-2 py-1 text-xs font-medium text-zinc-800"
+        className="rounded-lg bg-[var(--surface-soft)] px-2 py-1 text-xs font-semibold text-[var(--muted)]"
         onClick={() => setSelectedIsoDate((prev) => addDays(prev, -1))}
       >
         Dia anterior
       </button>
       <button
         type="button"
-        className="rounded-lg bg-zinc-200 px-2 py-1 text-xs font-medium text-zinc-800"
+        className="rounded-lg bg-[var(--surface-soft)] px-2 py-1 text-xs font-semibold text-[var(--muted)]"
         onClick={() => setSelectedIsoDate((prev) => addDays(prev, 1))}
       >
         Dia siguiente
@@ -153,9 +164,9 @@ export default function WorkoutPage() {
     return (
       <div className="space-y-4">
         <Card title="Fecha de consulta">{dayPicker}</Card>
-        <Card title="Entreno de hoy">
-          <p className="text-sm font-medium text-zinc-900">Descanso</p>
-          <p className="mt-2 text-sm text-zinc-600">
+        <Card title="Entreno de hoy" subtitle="Dia de descanso">
+          <p className="text-sm font-semibold text-[var(--foreground)]">Descanso</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
             Proximo entreno: {formatDayLabel(nextTraining.isoDate)} ({nextTraining.dayOfWeek})
           </p>
         </Card>
@@ -182,7 +193,7 @@ export default function WorkoutPage() {
   return (
     <div className="space-y-4">
       <Card title={trainingDay.label}>
-        <p className="text-sm text-zinc-600">{formatDayLabel(selectedIsoDate)}</p>
+        <p className="text-sm text-[var(--muted)]">{formatDayLabel(selectedIsoDate)}</p>
         <div className="mt-2">{dayPicker}</div>
         <p className="mt-1 text-sm text-zinc-700">
           Hechos: {doneIndexes.length}/{trainingDay.exercises.length}
@@ -220,10 +231,14 @@ export default function WorkoutPage() {
                 </label>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-xs text-zinc-700">
-                <p className="rounded-lg bg-zinc-100 px-2 py-1">Series: {exercise.series ?? "-"}</p>
-                <p className="rounded-lg bg-zinc-100 px-2 py-1">Reps: {exercise.reps ?? "-"}</p>
-                <p className="rounded-lg bg-zinc-100 px-2 py-1">
+              <div className="grid grid-cols-3 gap-2 text-xs text-[var(--muted)]">
+                <p className="rounded-lg bg-[var(--surface-soft)] px-2 py-1">
+                  Series: {exercise.series ?? "-"}
+                </p>
+                <p className="rounded-lg bg-[var(--surface-soft)] px-2 py-1">
+                  Reps: {exercise.reps ?? "-"}
+                </p>
+                <p className="rounded-lg bg-[var(--surface-soft)] px-2 py-1">
                   Descanso: {formatRest(exercise.restSeconds)}
                 </p>
               </div>

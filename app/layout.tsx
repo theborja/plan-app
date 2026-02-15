@@ -35,14 +35,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-white">
-          <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
-            <p className="text-xs uppercase tracking-wide text-zinc-500">
+        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-transparent">
+          <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--surface)]/90 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
               Plan App
             </p>
             <div className="mt-1 flex items-end justify-between gap-3">
-              <h1 className="text-xl font-semibold text-zinc-900">Mi Plan</h1>
-              <p className="text-sm capitalize text-zinc-600">{todayLabel}</p>
+              <h1 className="text-xl font-bold text-[var(--foreground)]">Mi Plan</h1>
+              <p className="rounded-full bg-[var(--surface-soft)] px-2 py-1 text-xs capitalize text-[var(--muted)]">
+                {todayLabel}
+              </p>
             </div>
           </header>
 

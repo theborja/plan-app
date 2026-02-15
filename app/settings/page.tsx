@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import BottomSheet from "@/components/BottomSheet";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
+import Skeleton from "@/components/Skeleton";
 import Toast from "@/components/Toast";
 import { downloadJson, readJsonFile } from "@/lib/jsonFile";
 import {
@@ -86,17 +87,16 @@ export default function SettingsPage() {
   if (!settings) {
     return (
       <div className="space-y-4">
-        <EmptyState
-          title="Cargando ajustes"
-          description="Inicializando configuracion local."
-        />
+        <Card title="Cargando ajustes">
+          <Skeleton lines={3} />
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <Card title="Ciclo nutricional">
+      <Card title="Ciclo nutricional" subtitle="Define desde que fecha empieza el ciclo de 2 semanas">
         <div className="space-y-2">
           <label className="text-sm font-medium text-zinc-900" htmlFor="start-date">
             Fecha inicio (nutritionStartDateISO)
@@ -118,7 +118,7 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <Card title="Training day map">
+      <Card title="Training day map" subtitle="Relacion entre dia real y DIA 1..4 del plan">
         <div className="space-y-3">
           {MAP_KEYS.map((day) => (
             <label key={day} className="flex items-center justify-between gap-3 text-sm">
@@ -140,11 +140,11 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <Card title="Importar / Exportar">
+      <Card title="Importar / Exportar" subtitle="Respalda o restaura datos locales en JSON">
         <div className="space-y-2">
           <button
             type="button"
-            className="w-full rounded-xl bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+            className="w-full rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
             disabled={!plan}
             onClick={() => plan && downloadJson("plan.json", plan)}
           >
@@ -153,7 +153,7 @@ export default function SettingsPage() {
 
           <button
             type="button"
-            className="w-full rounded-xl bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+            className="w-full rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
             disabled={!selections}
             onClick={() => selections && downloadJson("selections.json", selections)}
           >

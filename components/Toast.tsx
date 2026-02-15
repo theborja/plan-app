@@ -14,10 +14,10 @@ export default function Toast({ message, tone = "info", onClose }: ToastProps) {
       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
       : tone === "error"
         ? "border-rose-200 bg-rose-50 text-rose-800"
-        : "border-zinc-300 bg-zinc-100 text-zinc-800";
+        : "border-[var(--border)] bg-[var(--surface-soft)] text-[var(--muted)]";
 
   return (
-    <div className={`rounded-xl border px-3 py-2 text-sm ${toneClass}`}>
+    <div className={`rounded-xl border px-3 py-2 text-sm shadow-[var(--shadow-soft)] ${toneClass}`}>
       <div className="flex items-start justify-between gap-2">
         <p>{message}</p>
         {onClose ? (

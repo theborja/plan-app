@@ -1,8 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f9;
-  --foreground: #111827;
+  --background: #f4f6fb;
+  --surface: #ffffff;
+  --surface-soft: #f8f9fd;
+  --foreground: #0f172a;
+  --muted: #475569;
+  --border: #dbe3ef;
+  --primary-start: #6c5dd3;
+  --primary-end: #8a78f2;
+  --success: #4caf50;
+  --warning: #ff9800;
+  --error: #e53935;
+  --radius-card: 1rem;
+  --radius-pill: 0.75rem;
+  --shadow-soft: 0 8px 20px rgba(26, 40, 68, 0.08);
 }
 
 @theme inline {
@@ -14,7 +26,61 @@
 
 body {
   min-height: 100dvh;
-  background: var(--background);
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(138, 120, 242, 0.18) 0%, transparent 45%),
+    radial-gradient(80% 70% at 100% 0%, rgba(76, 175, 80, 0.16) 0%, transparent 38%),
+    var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), sans-serif;
+  line-height: 1.45;
+}
+
+@keyframes fadeInLift {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-card {
+  animation: fadeInLift 0.45s ease both;
+}
+
+@keyframes sheetPop {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-sheet {
+  animation: sheetPop 0.4s cubic-bezier(0.2,0,0,1);
+}
+
+button,
+input,
+textarea,
+select {
+  outline-color: color-mix(in oklab, var(--primary-end) 65%, white);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--primary-end) 70%, white);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--primary-end) 35%, white);
 }

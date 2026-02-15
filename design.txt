@@ -1,0 +1,326 @@
+Claro — aquí tienes un **Documento de Diseño de Producto (DDP)** para tu web app, inspirado visual y funcionalmente en el estilo del dribbble que enlazaste:
+🔗 [https://dribbble.com/shots/26290699-Fitness-Nutrition-App](https://dribbble.com/shots/26290699-Fitness-Nutrition-App)
+
+Este documento te servirá como **base para desarrollo, diseño UI/UX y comunicación con Codex o diseñadores**.
+
+---
+
+# 📄 Documento de Diseño de Producto
+
+## **“Nutrition & Training App” – Versión Web App Mobile-First**
+
+---
+
+## 🎯 Visión General
+
+**Objetivo:**
+Crear una web app **mobile-first** que permita a los usuarios:
+
+✔ Importar un plan completo de nutrición y entrenamiento desde un Excel entrenado
+✔ Ver todas las **opciones de menús nutricionales por día y comida**
+✔ Seleccionar qué menú van a seguir
+✔ Ver su entrenamiento del día (solo Tue/Wed/Sat/Sun)
+✔ Marcar comida/entrenos completados y añadir notas
+✔ Exportar/Importar progreso (JSON)
+✔ Reemplazar el plan base con un nuevo Excel
+
+El estilo visual debe estar **inspirado en la estética del dribbble**: uso de gradientes suaves, tipografía limpia, color vibrante para los elementos activos y layouts con jerarquía clara.
+
+---
+
+## 🎨 Estilo Visual (UI)
+
+### 🎨 Paleta de colores
+
+* **Primario:** azul-violeta / degradado suave
+* **Secundario:** verde menta, naranja energía
+* **Fondo:** blanco y grises claros
+* **Textos:** negro intenso para títulos, gris oscuro para cuerpos
+
+> Inspirado en: tonos vibrantes + espacios amplios.
+
+### 🪶 Tipografía
+
+* **Headers:** sans-serif moderna (p. ej. Inter / Montserrat)
+* **Body:** sans-serif legible
+* **Botones:** mayúsculas semibold
+
+### 🧩 Diseño de Componentes
+
+* **Cards:** esquinas redondeadas, sombra suave
+* **Botones:** corners mid-rounded, feedback de pulsación
+* **BottomNav:** fijada al pie con iconos + labels
+* **BottomSheet / Modals:** sliding desde abajo
+* **Estados vacíos:** ilustraciones + CTA claros
+
+---
+
+## 🧭 Arquitectura de Navegación
+
+📱 **Bottom Navigation (Always Visible)**
+
+| Icon | Tab      | Componente  |
+| ---- | -------- | ----------- |
+| 🏠   | Hoy      | `/today`    |
+| 💪   | Entreno  | `/workout`  |
+| 📤   | Importar | `/import`   |
+| ⚙️   | Ajustes  | `/settings` |
+
+---
+
+## 🧠 Flujo Funcional
+
+### 1️⃣ Importar Plan (Import)
+
+📄 **/import**
+
+* Subir Excel base o personalizado
+* Mostrar **preview parseado**:
+
+  * nutrición: días y número de opciones por comida
+  * entrenamiento: días y número de ejercicios
+* Botón **Guardar como plan activo**
+* Debug de parsing opcional
+
+✔ En app inicial si no hay plan en localStorage, auto-carga `/public/default-plan.xlsx`
+
+---
+
+### 2️⃣ Hoy (Nutrición)
+
+📅 **/today**
+
+**Objetivo:** mostrar al usuario todas las opciones de menús por comida + permitir seleccionar una
+
+🔹 **Encabezado**
+Fecha local + semana del ciclo
+Indicadores visuales:
+🟢 comidas elegidas | ☑ comidas completadas
+
+🔹 **Sección comidas**
+Para cada `mealType`:
+
+* Título (Ej: Desayuno)
+* Card con:
+
+  * Opción seleccionada (si aplica)
+  * Botón “Elegir opción”
+
+🔹 **BottomSheet menú**
+Al presionar “Elegir opción”, abrir:
+
+* Lista de **todas las opciones** disponibles
+* Cada opción:
+
+  * Título
+  * Preview de 3-4 líneas de ingredientes
+  * Botón “Seleccionar”
+
+✔ Selección persiste en localStorage
+✔ Mostrar estado “hecho” y campo nota
+
+---
+
+### 3️⃣ Entrenamiento
+
+📅 **/workout**
+
+**Regla de negocio**
+Entrena solo: Martes, Miércoles, Sábado y Domingo
+
+✔ Si hoy es día de descanso:
+
+* Mostrar pantalla descanso
+* Indicador del **próximo entreno**
+
+✔ Si hoy es entreno:
+
+* Lista de ejercicios:
+
+  * Nombre
+  * Sets / Reps
+  * Descanso (s)
+  * Checkbox por ejercicio “Hecho”
+  * Campo nota
+
+Estructura visual inspirada en el dribbble: tarjetas con línea clara por ejercicio.
+
+---
+
+### 4️⃣ Ajustes
+
+⚙️ **/settings**
+
+Opciones:
+
+* Cambiar **startDate** del ciclo de nutrición
+* Mapear días de la semana al entrenamiento
+
+  * Tue → Día 1
+  * Wed → Día 2
+  * Sat → Día 3
+  * Sun → Día 4
+* Exportar plan.json
+* Exportar selections.json
+* Importar selections.json
+* Reset (borrar localStorage)
+
+---
+
+## 🌀 Tokens de Diseño (UI/UX)
+
+### 🟣 Colores
+
+| Propósito   | Color                          |
+| ----------- | ------------------------------ |
+| Primario    | `#6C5DD3 → #8A78F2` (gradient) |
+| Éxito       | `#4CAF50`                      |
+| Advertencia | `#FF9800`                      |
+| Error       | `#E53935`                      |
+| Fondo       | `#FFFFFF / #F7F7F7`            |
+
+### 🔤 Tipografías
+
+| Elemento   | Tipo                   |
+| ---------- | ---------------------- |
+| Headers    | 700, 24-32px           |
+| Subheaders | 600, 18-22px           |
+| Body       | 400, 14-16px           |
+| Buttons    | 600, 14-16px uppercase |
+
+### ⛱ Espaciados (Tailwind)
+
+* `p-4`, `m-4`, `gap-4` para secciones
+* `p-2` para items internos
+* `rounded-lg` para cards y sheets
+
+---
+
+## 🗂 Parcing Strategy (Diseño Técnico)
+
+### 🧾 PLAN NUTRICIONAL
+
+1. Buscar fila donde aparecen LUNES..DOMINGO
+2. Detectar columnas Mon..Sun semana 1 y semana 2
+3. Detectar bloques de comida (col A con DESAYUNO, ALMUERZO…)
+4. Extraer celdas por día
+5. **Split de opciones**:
+
+   * Detectar textos con:
+     `OPCIÓN`, `Opción`, `1)`, `2)`, `•`, `-`
+   * Si hay múltiples opciones → generar MenuOption[]
+   * Si no → un solo MenuOption
+
+**Estructura final**
+
+```ts
+MenuOption = {
+  optionId: string,
+  title: string,
+  lines: string[]
+}
+```
+
+---
+
+### 🏋️ PLAN ENTRENAMIENTO
+
+1. Buscar bloques que empiezan con “DÍA”
+2. Extraer ejercicios:
+
+   * col0 → name
+   * col5 → sets
+   * col6 → reps
+   * col7 → descanso
+3. Convertir descanso a segundos
+4. Guardar en TrainingDay
+
+---
+
+## 📊 UI Wireframes (textual)
+
+### 🏠 Today – Nutrición
+
+```
+[Header: Fecha]   [Semana 1/2]
+
+[Resumen]
+☑ 2/6 comidas elegidas
+
+[Card: Desayuno]
+  - Selección actual (o “Sin seleccionar”)
+  - Button: “Elegir opción”
+[Card: Media mañana]
+…
+```
+
+Modal BottomSheet:
+
+```
+[Header: Elegir Desayuno]
+Lista:
+ - [Opción 1] Título + lines[0..2]
+ - [Opción 2] Título + lines[0..2]
+```
+
+---
+
+### 💪 Entreno
+
+```
+[Header: Entrenamiento]
+Si no toca:
+→ “Hoy es día de descanso”
+→ “Próximo entreno: Sábado”
+
+Si toca:
+[Ejercicio 1 Card]
+Name
+Sets / Reps / Rest
+[Checkbox Hecho] [Nota]
+
+…
+```
+
+---
+
+## 🚦 Estados del Sistema
+
+| Estado                       | UI Visual                            |
+| ---------------------------- | ------------------------------------ |
+| Sin plan montado             | CTA + ilustración + botón Importar   |
+| Importado pero sin selección | Texto guía + lista de comidas vacías |
+| Selecciones parciales        | Progreso + botones “Hecho”           |
+| Todo completo                | Celebración / resumen diario         |
+
+---
+
+## 📌 Entregables
+
+### 📌 Diseño visual (para dev)
+
+* Paleta de colores
+* Tipografía
+* Componentes reutilizables
+* Tokens de diseño (Tailwind config)
+
+### 📌 Desarrollo
+
+* Código mobile-first Next.js
+* Parsers robustos
+* Persistencia JSON
+* Export/Import flujo
+
+---
+
+## 🧠 Notas de UX Clave
+
+✔ Mostrar siempre fecha iso local
+✔ Resaltar comida/entreno seleccionado
+✔ Feedback claro al seleccionar una opción
+✔ Mensajes de éxito (toasts simples)
+✔ No saturar la pantalla, scroll vertical fluido
+
+---
+
+Si quieres, puedo convertir esto a un **Figma Kit** o incluso darte **estilos Tailwind exactos** para cada componente clave (cards, botones, bottom sheet), listo para pegar en tu proyecto.

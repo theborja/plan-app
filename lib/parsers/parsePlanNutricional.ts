@@ -179,7 +179,7 @@ function collectCellTextByBlock(
   colIndex: number,
 ): string {
   const lines: string[] = [];
-  for (let row = block.startRow + 1; row <= block.endRow; row += 1) {
+  for (let row = block.startRow; row <= block.endRow; row += 1) {
     const rowCells = sheetMatrix[row] ?? [];
     const text = asCellText(rowCells[colIndex]).trim();
     if (text) {

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
+import Skeleton from "@/components/Skeleton";
 import Toast from "@/components/Toast";
 import { parseWorkbookToPlanV1, type ParseWorkbookDebug } from "@/lib/parsers/parseWorkbookPlan";
 import { defaultSelectionsV1, savePlanV1, saveSelectionsV1 } from "@/lib/storage";
@@ -80,23 +81,23 @@ export default function ImportPage() {
 
   return (
     <div className="space-y-4">
-      <Card title="Importar Plan">
+      <Card title="Importar Plan" subtitle="Sube un archivo y revisa el resumen antes de reemplazar">
         <div className="space-y-3">
-          <p className="text-sm text-zinc-600">
+          <p className="text-sm text-[var(--muted)]">
             Sube un archivo .xlsx y se parsearan solo las hojas PLAN NUTRICIONAL y PLAN ENTRENAMIENTO.
           </p>
 
           <input
             type="file"
             accept=".xlsx,.xlsm,.xls"
-            className="block w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm"
+            className="block w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm"
             onChange={(event) => void handleFileChange(event.target.files?.[0] ?? null)}
             disabled={isBusy}
           />
 
           <button
             type="button"
-            className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            className="rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
             disabled={!parsedPlan || isBusy}
             onClick={handleSaveReplace}
           >
@@ -112,24 +113,30 @@ export default function ImportPage() {
       </Card>
 
       {!parsedPlan ? (
-        <EmptyState
-          title="Sin preview"
-          description="Carga un Excel para ver el resumen antes de guardar."
-        />
+        isBusy ? (
+          <Card title="Procesando archivo">
+            <Skeleton lines={5} />
+          </Card>
+        ) : (
+          <EmptyState
+            title="Sin preview"
+            description="Carga un Excel para ver el resumen antes de guardar."
+          />
+        )
       ) : (
         <>
-          <Card title="Preview nutricion">
-            <div className="space-y-2 text-sm text-zinc-700">
-              <p className="font-medium text-zinc-900">
+          <Card title="Preview nutricion" subtitle="Resumen por dia y comida">
+            <div className="space-y-2 text-sm text-[var(--muted)]">
+              <p className="font-semibold text-[var(--foreground)]">
                 Archivo: {sourceName} | Dias detectados: {parsedPlan.nutrition.days.length}
               </p>
               <ul className="space-y-1">
                 {nutritionRows.map((row) => (
-                  <li key={row.key} className="rounded-lg border border-zinc-200 px-3 py-2">
-                    <p className="font-medium text-zinc-900">
+                  <li key={row.key} className="rounded-lg border border-[var(--border)] bg-white px-3 py-2">
+                    <p className="font-semibold text-[var(--foreground)]">
                       Semana {row.weekIndex} - {row.dayOfWeek}
                     </p>
-                    <p className="mt-1 text-xs text-zinc-600">
+                    <p className="mt-1 text-xs text-[var(--muted)]">
                       {row.counts.map((item) => `${item.mealType}: ${item.count}`).join(" | ")}
                     </p>
                   </li>
@@ -138,12 +145,12 @@ export default function ImportPage() {
             </div>
           </Card>
 
-          <Card title="Preview entrenamiento">
-            <ul className="space-y-1 text-sm text-zinc-700">
+          <Card title="Preview entrenamiento" subtitle="Dias y cantidad de ejercicios">
+            <ul className="space-y-1 text-sm text-[var(--muted)]">
               {parsedPlan.training.days.map((day) => (
-                <li key={day.dayIndex} className="rounded-lg border border-zinc-200 px-3 py-2">
-                  <span className="font-medium text-zinc-900">{day.label}</span>
-                  <span className="ml-2 text-zinc-600">
+                <li key={day.dayIndex} className="rounded-lg border border-[var(--border)] bg-white px-3 py-2">
+                  <span className="font-semibold text-[var(--foreground)]">{day.label}</span>
+                  <span className="ml-2 text-[var(--muted)]">
                     ({day.exercises.length} ejercicios)
                   </span>
                 </li>
@@ -151,12 +158,12 @@ export default function ImportPage() {
             </ul>
           </Card>
 
-          <Card title="Debug parser">
+          <Card title="Debug parser" subtitle="Informacion tecnica del parseo">
             <details>
-              <summary className="cursor-pointer text-sm font-medium text-zinc-900">
+              <summary className="cursor-pointer text-sm font-semibold text-[var(--foreground)]">
                 Ver detalles de deteccion
               </summary>
-              <div className="mt-3 space-y-3 text-sm text-zinc-700">
+              <div className="mt-3 space-y-3 text-sm text-[var(--muted)]">
                 <p>
                   Fila encabezados dias:{" "}
                   {debugInfo?.nutrition?.headerRowIndex !== undefined
@@ -176,7 +183,7 @@ export default function ImportPage() {
                     : "N/A"}
                 </p>
                 <div>
-                  <p className="font-medium text-zinc-900">Bloques de comida:</p>
+                  <p className="font-semibold text-[var(--foreground)]">Bloques de comida:</p>
                   <ul className="mt-1 space-y-1">
                     {debugInfo?.nutrition?.mealBlocks?.map((block) => (
                       <li key={`${block.mealType}-${block.startRow}`}>

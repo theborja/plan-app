@@ -57,3 +57,23 @@ Desde `Ajustes` (`/settings`):
 - `Exportar plan.json`: descarga el plan actual.
 - `Exportar selections.json`: descarga el progreso/selecciones actuales.
 - `Importar selections.json`: carga un archivo JSON y valida `version` + estructura antes de guardar.
+
+## Design System (UI)
+
+Tokens base definidos en `app/globals.css`:
+
+- `--primary-start` / `--primary-end`: gradiente principal.
+- `--surface` / `--surface-soft`: superficies de cards y paneles.
+- `--foreground` / `--muted`: jerarquia de texto.
+- `--border`: bordes y separadores.
+- `--success`, `--warning`, `--error`: estados.
+- `--radius-card`, `--radius-pill`: radios reutilizables.
+- `--shadow-soft`: sombra estandar.
+
+Componentes base:
+
+- `components/Card.tsx`: contenedor visual principal.
+- `components/BottomNav.tsx`: navegacion fija inferior con estado activo.
+- `components/BottomSheet.tsx`: modal deslizante inferior.
+- `components/EmptyState.tsx`: estado vacio con CTA opcional.
+- `components/Toast.tsx`: feedback simple info/success/error.

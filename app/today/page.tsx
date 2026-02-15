@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import BottomSheet from "@/components/BottomSheet";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
+import Skeleton from "@/components/Skeleton";
 import { formatDayLabel, getLocalISODate, getNutritionWeekIndex } from "@/lib/date";
 import {
   defaultSelectionsV1,
@@ -38,7 +39,8 @@ export default function TodayPage() {
   const [settings, setSettings] = useState<SettingsV1 | null>(null);
   const [selections, setSelections] = useState<SelectionsV1>(defaultSelectionsV1());
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [hoveredOptionId, setHoveredOptionId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentOptionIndex, setCurrentOptionIndex] = useState(0);
 
   const isoDate = getLocalISODate();
 
@@ -46,6 +48,7 @@ export default function TodayPage() {
     setPlan(loadPlanV1());
     setSettings(loadSettingsV1());
     setSelections(loadSelectionsV1());
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -56,12 +59,19 @@ export default function TodayPage() {
     return () => window.clearTimeout(timer);
   }, [plan]);
 
+  const weekIndex = settings
+    ? getNutritionWeekIndex(isoDate, settings.nutritionStartDateISO, 2)
+    : 1;
+
   const dailyMenuOptions = useMemo(() => {
     if (!plan || !settings) return null;
-    const weekIndex = getNutritionWeekIndex(isoDate, settings.nutritionStartDateISO, 2);
     const weekDays = plan.nutrition.days
-      .filter((day) => day.weekIndex === weekIndex)
-      .sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek));
+      .sort((a, b) => {
+        if (a.weekIndex === b.weekIndex) {
+          return DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek);
+        }
+        return a.weekIndex - b.weekIndex;
+      });
 
     return weekDays.map((day, index) => {
       const meals = MEAL_TYPES.map((mealType) => {
@@ -75,13 +85,14 @@ export default function TodayPage() {
         };
       }).filter((meal) => meal.lines.length > 0);
 
-      return {
-        optionId: `${weekIndex}-${day.dayOfWeek}`,
-        optionLabel: `Opcion ${index + 1}`,
-        sourceDayOfWeek: day.dayOfWeek,
-        meals,
-      };
-    });
+        return {
+          optionId: `${weekIndex}-${day.dayOfWeek}`,
+          weekIndex: day.weekIndex,
+          optionLabel: `Opcion ${index + 1}`,
+          sourceDayOfWeek: day.dayOfWeek,
+          meals,
+        };
+      });
   }, [plan, settings, isoDate]);
 
   const daySelection = selections.byDate[isoDate];
@@ -89,6 +100,13 @@ export default function TodayPage() {
   const selectedDailyMenuOption = dailyMenuOptions?.find(
     (option) => option.optionId === selectedDailyMenuOptionId,
   );
+
+  useEffect(() => {
+    if (!dailyMenuOptions) return;
+    const targetWeek = weekIndex;
+    const idx = dailyMenuOptions.findIndex((option) => option.weekIndex === targetWeek);
+    setCurrentOptionIndex(idx === -1 ? 0 : idx);
+  }, [dailyMenuOptions, weekIndex]);
 
   function updateDailyMenuSelection(patch: {
     selectedDayOptionId?: string;
@@ -101,7 +119,7 @@ export default function TodayPage() {
         byDate: { ...prev.byDate },
       };
 
-      const currentDay = next.byDate[isoDate] ?? { meals: {} };
+  const currentDay = next.byDate[isoDate] ?? { meals: {} };
 
       next.byDate[isoDate] = {
         ...currentDay,
@@ -127,16 +145,24 @@ export default function TodayPage() {
   if (!plan) {
     return (
       <div className="space-y-4">
-        <EmptyState
-          title="No hay plan cargado"
-          description="Importa un archivo para empezar a seleccionar menus."
-        />
-        <Link
-          href="/import"
-          className="inline-flex rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-        >
-          Ir a importar
-        </Link>
+        {isLoading ? (
+          <Card title="Cargando plan">
+            <Skeleton lines={4} />
+          </Card>
+        ) : (
+          <EmptyState
+            title="No hay plan cargado"
+            description="Importa un archivo para empezar a seleccionar menus."
+            action={
+              <Link
+                href="/import"
+                className="inline-flex rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-4 py-2 text-sm font-semibold text-white"
+              >
+                Ir a importar
+              </Link>
+            }
+          />
+        )}
       </div>
     );
   }
@@ -156,53 +182,69 @@ export default function TodayPage() {
   return (
     <div className="space-y-4">
       <Card title="Resumen de hoy">
-        <div className="space-y-1 text-sm text-zinc-700">
-          <p className="font-medium text-zinc-900">{formatDayLabel(isoDate)}</p>
-          <p>
-            Menus seleccionados: {selectedCount}/1
-          </p>
-          <p>
-            Menus hechos: {doneCount}/1
-          </p>
-          <p className="text-xs text-zinc-500">Opciones disponibles esta semana: {totalMenus}</p>
+        <div className="space-y-2 text-sm text-[var(--muted)]">
+          <p className="font-semibold text-[var(--foreground)]">{formatDayLabel(isoDate)}</p>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-soft)] px-2 py-1 text-xs">
+              Semana {weekIndex}/2
+            </span>
+            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-soft)] px-2 py-1 text-xs">
+              Menus: {selectedCount}/1
+            </span>
+            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-soft)] px-2 py-1 text-xs">
+              Hecho: {doneCount}/1
+            </span>
+          </div>
+          <p className="text-xs text-[var(--muted)]">Opciones disponibles esta semana: {totalMenus}</p>
         </div>
       </Card>
 
       <Card title="Menu completo del dia">
         <div className="space-y-3">
           {selectedDailyMenuOption ? (
-            <div className="rounded-xl bg-zinc-100 p-3">
-              <p className="text-sm font-semibold text-zinc-900">
-                {selectedDailyMenuOption.optionLabel}
-              </p>
-              <p className="text-xs text-zinc-500">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-[var(--foreground)]">
+                    {selectedDailyMenuOption.optionLabel}
+                  </p>
+                  <span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--muted)]">
+                    Semana {selectedDailyMenuOption.weekIndex}
+                  </span>
+                </div>
+              <p className="text-xs text-[var(--muted)]">
                 Basado en columna {selectedDailyMenuOption.sourceDayOfWeek}
               </p>
               <ul className="mt-2 space-y-2 text-xs text-zinc-700">
                 {selectedDailyMenuOption.meals.map((meal) => (
                   <li key={meal.mealType}>
-                    <p className="font-medium text-zinc-900">{meal.mealType}</p>
-                    <p>{meal.lines.join(" | ")}</p>
+                    <p className="font-medium text-[var(--foreground)]">{meal.mealType}</p>
+                    <p className="text-[var(--muted)]">{meal.lines.join(" | ")}</p>
                   </li>
                 ))}
               </ul>
             </div>
           ) : (
-            <p className="text-sm text-zinc-500">Sin menu seleccionado.</p>
+            <p className="text-sm text-[var(--muted)]">Sin menu seleccionado.</p>
           )}
 
           <div className="flex gap-2">
-            <button
-              type="button"
-              className="rounded-xl bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
-              onClick={() => setIsSheetOpen(true)}
+    <button
+      type="button"
+              className="rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white shadow-sm"
+            onClick={() => {
+              const idx = dailyMenuOptions?.findIndex(
+                (option) => option.optionId === selectedDailyMenuOptionId,
+              );
+              setCurrentOptionIndex(idx === -1 || idx === undefined ? 0 : idx);
+              setIsSheetOpen(true);
+            }}
             >
               Elegir menu
             </button>
             <button
               type="button"
               className={[
-                "rounded-xl px-3 py-2 text-sm font-medium",
+                "rounded-xl px-3 py-2 text-sm font-semibold",
                 daySelection?.dailyMenu?.done ? "bg-emerald-600 text-white" : "bg-zinc-200 text-zinc-800",
               ].join(" ")}
               onClick={() =>
@@ -225,53 +267,65 @@ export default function TodayPage() {
       </Card>
 
       <BottomSheet open={isSheetOpen} title="Elegir menu diario" onClose={() => setIsSheetOpen(false)}>
-        <div className="space-y-2">
-          {dailyMenuOptions.map((option) => (
-            <div
-              key={option.optionId}
-              className="relative"
-              onMouseEnter={() => setHoveredOptionId(option.optionId)}
-              onMouseLeave={() => setHoveredOptionId((current) => (current === option.optionId ? null : current))}
-            >
+        {dailyMenuOptions && dailyMenuOptions[currentOptionIndex] && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
               <button
                 type="button"
-                className={[
-                  "w-full rounded-xl border px-3 py-2 text-left",
-                  selectedDailyMenuOptionId === option.optionId
-                    ? "border-zinc-900 bg-zinc-100"
-                    : "border-zinc-300 bg-white",
-                ].join(" ")}
+                className="rounded-full bg-[var(--surface-soft)] px-3 py-2 text-xs font-semibold text-[var(--muted)]"
+                onClick={() =>
+                  setCurrentOptionIndex((prev) =>
+                    prev === 0 ? dailyMenuOptions.length - 1 : prev - 1,
+                  )
+                }
+              >
+                ← Anterior
+              </button>
+              <span className="text-xs font-semibold text-[var(--muted)]">
+                {dailyMenuOptions[currentOptionIndex].optionLabel}
+              </span>
+              <button
+                type="button"
+                className="rounded-full bg-[var(--surface-soft)] px-3 py-2 text-xs font-semibold text-[var(--muted)]"
+                onClick={() =>
+                  setCurrentOptionIndex((prev) => (prev + 1) % dailyMenuOptions.length)
+                }
+              >
+                Siguiente →
+              </button>
+            </div>
+            <div className="mx-auto w-full rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 text-left shadow-[var(--shadow-soft)]">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-[var(--foreground)]">
+                {dailyMenuOptions[currentOptionIndex].optionLabel}
+              </p>
+              <span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--muted)]">
+                  Semana {dailyMenuOptions[currentOptionIndex].weekIndex}
+              </span>
+            </div>
+              <div className="mt-3 space-y-2 text-[12px] text-[var(--muted)]">
+                {dailyMenuOptions[currentOptionIndex].meals.map((meal) => (
+                  <div key={`${meal.mealType}-${dailyMenuOptions[currentOptionIndex].optionId}`}>
+                    <p className="font-semibold text-[var(--foreground)] text-[12px]">{meal.mealType}</p>
+                    <p>{meal.lines.join(" | ")}</p>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="mt-4 w-full rounded-full bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white"
                 onClick={() => {
-                  updateDailyMenuSelection({ selectedDayOptionId: option.optionId });
+                  updateDailyMenuSelection({
+                    selectedDayOptionId: dailyMenuOptions[currentOptionIndex].optionId,
+                  });
                   setIsSheetOpen(false);
                 }}
               >
-                <p className="text-sm font-medium text-zinc-900">{option.optionLabel}</p>
-                <p className="text-xs text-zinc-500">Columna origen: {option.sourceDayOfWeek}</p>
-                <p className="mt-1 text-xs text-zinc-600">
-                  {option.meals
-                    .slice(0, 3)
-                    .map((meal) => `${meal.mealType}: ${meal.lines[0] ?? ""}`)
-                    .join(" | ")}
-                </p>
+                Seleccionar menú
               </button>
-
-              {hoveredOptionId === option.optionId ? (
-                <div className="pointer-events-none absolute left-2 right-2 top-[calc(100%+0.35rem)] z-20 hidden rounded-xl border border-zinc-300 bg-white p-3 shadow-lg md:block">
-                  <p className="text-xs font-semibold text-zinc-900">Vista completa</p>
-                  <ul className="mt-2 space-y-1 text-xs text-zinc-700">
-                    {option.meals.map((meal) => (
-                      <li key={`${option.optionId}-${meal.mealType}`}>
-                        <span className="font-medium text-zinc-900">{meal.mealType}: </span>
-                        <span>{meal.lines.join(" | ")}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </BottomSheet>
     </div>
   );
