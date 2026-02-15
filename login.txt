@@ -1,0 +1,361 @@
+
+---
+
+# 📄 Documento de Diseño
+
+## Login – Fitness Nutrition App (v1)
+
+---
+
+# 1️⃣ Objetivo
+
+Implementar una pantalla de login:
+
+* Visualmente similar a la referencia (card central, fondo suave, minimalista)
+* Mobile-first
+* Sin:
+
+  * ❌ Reset password
+  * ❌ Social login
+  * ❌ Registro desde esta pantalla
+* Autenticación contra un **JSON de usuarios ya existente**
+* Protección automática de rutas:
+
+  * Si NO estás logado → redirige a `/login`
+  * Si estás logado → accedes a la app
+  * Si intentas ir a `/login` estando logado → redirige a `/today`
+
+---
+
+# 2️⃣ Arquitectura de Autenticación
+
+## 🔐 Modelo de Datos
+
+Existe un archivo:
+
+```
+/data/users.json
+```
+
+Formato esperado:
+
+```json
+[
+  {
+    "id": "1",
+    "email": "user@test.com",
+    "password": "123456",
+    "name": "Borja"
+  }
+]
+```
+
+⚠ En esta versión MVP la contraseña puede ser plain text.
+(Se puede mejorar después con hashing en cliente si se desea.)
+
+---
+
+## 💾 Persistencia de Sesión
+
+Se guardará en:
+
+```
+localStorage key: auth_v1
+```
+
+Formato:
+
+```json
+{
+  "version": 1,
+  "isAuthenticated": true,
+  "userId": "1",
+  "email": "user@test.com",
+  "loginAt": "2026-02-20T10:22:00Z"
+}
+```
+
+---
+
+# 3️⃣ Protección de Rutas (Routing Strategy)
+
+## 🛡 Regla Global
+
+Las siguientes rutas requieren autenticación:
+
+* `/today`
+* `/workout`
+* `/import`
+* `/settings`
+
+Ruta pública:
+
+* `/login`
+
+---
+
+## 🔁 Comportamiento
+
+### Caso 1 – Usuario NO logado
+
+* Accede a `/today`
+* Sistema detecta que no existe `auth_v1`
+* Redirige automáticamente a `/login`
+
+### Caso 2 – Usuario logado
+
+* Accede a `/login`
+* Sistema detecta sesión activa
+* Redirige automáticamente a `/today`
+
+---
+
+## 🧠 Implementación Recomendada (Next.js App Router)
+
+* Crear:
+
+  ```
+  lib/auth.ts
+  hooks/useAuth.ts
+  components/AuthGuard.tsx
+  ```
+
+* En layout principal envolver páginas privadas con `<AuthGuard>`.
+
+---
+
+# 4️⃣ Diseño Visual (Inspirado en referencia)
+
+## 🎨 Estética General
+
+* Fondo gris claro
+* Card blanca central
+* Header centrado con nombre app
+* Inputs redondeados
+* Botón primario azul
+
+---
+
+# 5️⃣ Layout Mobile-First
+
+## 📱 Estructura Vertical
+
+```
+[ Safe area ]
+
+App Name (centrado)
+
+[ Espacio ]
+
+[ Card blanca ]
+
+  Welcome back
+  Log in to continue
+
+  Email input
+  Password input
+
+  Remember me (opcional)
+
+  Login button
+```
+
+---
+
+# 6️⃣ Componentes UI
+
+## 🔹 Fondo
+
+* bg-gray-100
+* min-h-screen
+* flex
+* justify-center
+* items-center
+* px-4
+
+---
+
+## 🔹 Header
+
+* Texto centrado
+* Color primario
+* font-semibold
+* text-2xl
+
+Ejemplo:
+
+```
+FitPlan
+```
+
+---
+
+## 🔹 Card
+
+Propiedades:
+
+* bg-white
+* rounded-2xl
+* shadow-xl
+* p-6
+* w-full
+* max-w-md
+
+---
+
+## 🔹 Inputs
+
+### Estilo base
+
+* w-full
+* bg-gray-100
+* rounded-xl
+* px-4
+* py-3
+* text-sm
+* focus:ring-2 focus:ring-blue-500
+* outline-none
+
+---
+
+## 🔹 Botón Login
+
+* w-full
+* py-3
+* rounded-xl
+* bg-blue-600
+* text-white
+* font-semibold
+* hover:bg-blue-700
+* active:scale-95
+* transition
+
+---
+
+# 7️⃣ Estados UI
+
+## Estado Inicial
+
+* Inputs vacíos
+* Botón activo
+
+## Estado Error
+
+* Mensaje debajo del input:
+
+  * "Invalid email or password"
+* Borde rojo
+
+## Estado Loading
+
+* Botón deshabilitado
+* Spinner inline
+
+---
+
+# 8️⃣ Lógica de Login
+
+## Flujo
+
+1. Usuario introduce email + password
+2. Click Login
+3. Validaciones:
+
+   * Email no vacío
+   * Password no vacío
+4. Buscar en `users.json`
+5. Si match:
+
+   * Guardar auth_v1
+   * Redirigir a `/today`
+6. Si no:
+
+   * Mostrar error
+
+---
+
+# 9️⃣ Hook useAuth
+
+Debe exponer:
+
+```ts
+{
+  user,
+  isAuthenticated,
+  login(email, password),
+  logout()
+}
+```
+
+### logout()
+
+* Elimina `auth_v1`
+* Redirige a `/login`
+
+---
+
+# 🔟 AuthGuard Component
+
+Función:
+
+```tsx
+if (!isAuthenticated) {
+  redirect('/login')
+}
+```
+
+También debe manejar estado loading para evitar flicker.
+
+---
+
+# 1️⃣1️⃣ Seguridad Básica MVP
+
+* No guardar password en sesión
+* No exponer users.json completo en producción (en MVP puede estar en public o importado estáticamente)
+* Validación estricta de estructura JSON
+
+---
+
+# 1️⃣2️⃣ UX Consideraciones
+
+✔ Autofocus en email
+✔ Submit con Enter
+✔ Mensaje error claro
+✔ No mostrar detalles del error (no decir si el email existe o no)
+✔ Transición suave al entrar
+
+---
+
+# 1️⃣3️⃣ Estructura de Archivos Recomendada
+
+```
+/app/login/page.tsx
+/components/AuthGuard.tsx
+/hooks/useAuth.ts
+/lib/auth.ts
+/data/users.json
+```
+
+---
+
+# 1️⃣4️⃣ Flujo Completo de Usuario
+
+1. Abre la app
+2. Si no hay sesión → Login
+3. Introduce credenciales
+4. Entra a Today
+5. Navega normalmente
+6. Logout desde Settings
+7. Redirige a Login
+
+---
+
+# 1️⃣5️⃣ Decisiones Deliberadas
+
+✔ No hay reset password
+✔ No hay registro
+✔ No hay OAuth
+✔ Autenticación simple JSON local
+✔ Protección solo client-side
+
+---

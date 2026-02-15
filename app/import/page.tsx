@@ -6,6 +6,8 @@ import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
 import Toast from "@/components/Toast";
+import { isAdminUser } from "@/lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 import { parseWorkbookToPlanV1, type ParseWorkbookDebug } from "@/lib/parsers/parseWorkbookPlan";
 import { defaultSelectionsV1, savePlanV1, saveSelectionsV1 } from "@/lib/storage";
 import type { MealType, PlanV1 } from "@/lib/types";
@@ -20,6 +22,7 @@ const MEAL_TYPES: MealType[] = [
 ];
 
 export default function ImportPage() {
+  const { user, isReady } = useAuth();
   const [parsedPlan, setParsedPlan] = useState<PlanV1 | null>(null);
   const [debugInfo, setDebugInfo] = useState<ParseWorkbookDebug | null>(null);
   const [sourceName, setSourceName] = useState<string>("");
@@ -40,6 +43,8 @@ export default function ImportPage() {
       })),
     }));
   }, [parsedPlan]);
+
+  const canAccess = user ? isAdminUser(user.email) : false;
 
   async function handleFileChange(file: File | null) {
     if (!file) return;
@@ -77,6 +82,23 @@ export default function ImportPage() {
     saveSelectionsV1(defaultSelectionsV1());
 
     setToast({ message: "Plan guardado y reemplazado.", tone: "success" });
+  }
+
+  if (isReady && canAccess === false) {
+    return (
+      <EmptyState
+        title="Sin acceso"
+        description="Solo el usuario admin puede entrar en Importar."
+      />
+    );
+  }
+
+  if (!isReady) {
+    return (
+      <Card title="Cargando permisos">
+        <Skeleton lines={3} />
+      </Card>
+    );
   }
 
   return (

@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useMemo } from "react";
+import { isAdminUser } from "@/lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 
 const tabs = [
   { href: "/today", label: "Hoy", icon: "home" },
@@ -46,11 +49,19 @@ function Icon({ name }: { name: string }) {
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  const visibleTabs = useMemo(() => {
+    if (user && isAdminUser(user.email)) {
+      return tabs;
+    }
+    return tabs.filter((tab) => tab.href !== "/import" && tab.href !== "/settings");
+  }, [user]);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-[var(--border)] bg-[var(--surface)]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur">
-      <ul className="grid grid-cols-4 gap-1">
-        {tabs.map((tab) => {
+      <ul className="grid gap-1" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
+        {visibleTabs.map((tab) => {
           const isActive = pathname === tab.href;
 
           return (

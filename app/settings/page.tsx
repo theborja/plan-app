@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import BottomSheet from "@/components/BottomSheet";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
 import Toast from "@/components/Toast";
+import { isAdminUser, logoutLocal } from "@/lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 import { downloadJson, readJsonFile } from "@/lib/jsonFile";
 import {
   STORAGE_KEYS,
@@ -21,6 +24,8 @@ import { isSelectionsV1 } from "@/lib/validate";
 const MAP_KEYS = ["Tue", "Wed", "Sat", "Sun"] as const;
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const { user, isReady, refresh } = useAuth();
   const [settings, setSettings] = useState<SettingsV1 | null>(null);
   const [plan, setPlan] = useState<PlanV1 | null>(null);
   const [selections, setSelections] = useState<SelectionsV1 | null>(null);
@@ -30,11 +35,14 @@ export default function SettingsPage() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  const canAccess = user ? isAdminUser(user.email) : false;
+
   useEffect(() => {
+    if (!isReady) return;
     setSettings(loadSettingsV1());
     setPlan(loadPlanV1());
     setSelections(loadSelectionsV1());
-  }, []);
+  }, [isReady]);
 
   function updateSettings(next: SettingsV1) {
     setSettings(next);
@@ -84,7 +92,16 @@ export default function SettingsPage() {
     setToast({ message: "Datos locales eliminados. Recarga la app para reiniciar flujo.", tone: "info" });
   }
 
-  if (!settings) {
+  if (isReady && canAccess === false) {
+    return (
+      <EmptyState
+        title="Sin acceso"
+        description="Solo el usuario admin puede entrar en Ajustes."
+      />
+    );
+  }
+
+  if (!isReady || !settings) {
     return (
       <div className="space-y-4">
         <Card title="Cargando ajustes">
@@ -186,6 +203,20 @@ export default function SettingsPage() {
             Reset local
           </button>
         </div>
+      </Card>
+
+      <Card title="Sesion">
+        <button
+          type="button"
+          className="w-full rounded-xl bg-zinc-900 px-3 py-2 text-sm font-semibold text-white"
+          onClick={() => {
+            logoutLocal();
+            refresh();
+            router.replace("/login");
+          }}
+        >
+          Cerrar sesion
+        </button>
       </Card>
 
       <Toast message={toast?.message ?? null} tone={toast?.tone ?? "info"} onClose={() => setToast(null)} />
