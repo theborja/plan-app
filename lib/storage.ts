@@ -1,4 +1,4 @@
-import type { PlanV1, SelectionsV1, SettingsV1, TrainingDayMap } from "@/lib/types";
+import type { DayOfWeek, PlanV1, SelectionsV1, SettingsV1, TrainingDayMap } from "@/lib/types";
 import { isPlanV1, isSelectionsV1, isSettingsV1 } from "@/lib/validate";
 
 export const STORAGE_KEYS = {
@@ -13,6 +13,8 @@ const DEFAULT_TRAINING_DAY_MAP: TrainingDayMap = {
   Sat: 3,
   Sun: 4,
 };
+const DEFAULT_TRAINING_DAYS: DayOfWeek[] = ["Tue", "Wed", "Sat", "Sun"];
+const DAY_ORDER: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function isBrowser() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -45,7 +47,7 @@ export function defaultSettingsV1(date = new Date()): SettingsV1 {
   return {
     version: 1,
     nutritionStartDateISO: getTodayISO(date),
-    trainingDayMap: { ...DEFAULT_TRAINING_DAY_MAP },
+    trainingDays: [...DEFAULT_TRAINING_DAYS],
   };
 }
 
@@ -108,6 +110,46 @@ export function saveSelectionsV1(selections: SelectionsV1): void {
 export function loadSettingsV1(): SettingsV1 {
   const parsed = safeRead(STORAGE_KEYS.settings);
   if (isSettingsV1(parsed)) return parsed;
+
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const legacy = parsed as {
+      version?: unknown;
+      nutritionStartDateISO?: unknown;
+      trainingDayMap?: Partial<TrainingDayMap>;
+    };
+
+    if (
+      legacy.version === 1 &&
+      typeof legacy.nutritionStartDateISO === "string" &&
+      legacy.trainingDayMap &&
+      typeof legacy.trainingDayMap === "object"
+    ) {
+      const ordered = Object.entries(DEFAULT_TRAINING_DAY_MAP)
+        .map(([day, fallbackOrder]) => {
+          const key = day as keyof TrainingDayMap;
+          const orderRaw = legacy.trainingDayMap?.[key];
+          const order =
+            typeof orderRaw === "number" && Number.isFinite(orderRaw) && orderRaw > 0
+              ? orderRaw
+              : fallbackOrder;
+          return { day: day as DayOfWeek, order };
+        })
+        .sort((a, b) => a.order - b.order)
+        .map((item) => item.day)
+        .filter((day) => DAY_ORDER.includes(day));
+
+      const migrated: SettingsV1 = {
+        version: 1,
+        nutritionStartDateISO: legacy.nutritionStartDateISO,
+        trainingDays: ordered.length > 0 ? ordered : [...DEFAULT_TRAINING_DAYS],
+      };
+
+      if (isSettingsV1(migrated)) {
+        saveSettingsV1(migrated);
+        return migrated;
+      }
+    }
+  }
 
   const fallback = defaultSettingsV1();
   saveSettingsV1(fallback);

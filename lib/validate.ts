@@ -1,11 +1,11 @@
 import type {
   DailySelections,
+  DayOfWeek,
   MealSelection,
   PlanV1,
   SelectionsV1,
   SettingsV1,
   MealType,
-  TrainingDayNumber,
 } from "@/lib/types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -14,10 +14,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isString(value: unknown): value is string {
   return typeof value === "string";
-}
-
-function isTrainingDayNumber(value: unknown): value is TrainingDayNumber {
-  return value === 1 || value === 2 || value === 3 || value === 4;
 }
 
 function isIsoDate(value: unknown): value is string {
@@ -29,6 +25,8 @@ function isIsoDateTime(value: unknown): value is string {
   if (!isString(value)) return false;
   return !Number.isNaN(Date.parse(value));
 }
+
+const DAY_ORDER: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const MEAL_TYPES: MealType[] = [
   "DESAYUNO",
@@ -96,7 +94,10 @@ export function isPlanV1(value: unknown): value is PlanV1 {
   if (value.version !== 1) return false;
   if (!isString(value.sourceFileName)) return false;
   if (!isIsoDateTime(value.importedAtISO)) return false;
-  if (!isRecord(value.nutrition) || value.nutrition.cycleWeeks !== 2) return false;
+  if (!isRecord(value.nutrition)) return false;
+  if (typeof value.nutrition.cycleWeeks !== "number" || value.nutrition.cycleWeeks <= 0) {
+    return false;
+  }
   if (!Array.isArray(value.nutrition.days)) return false;
   if (!isRecord(value.training) || !Array.isArray(value.training.days)) return false;
   return true;
@@ -119,12 +120,11 @@ export function isSettingsV1(value: unknown): value is SettingsV1 {
   if (!isRecord(value)) return false;
   if (value.version !== 1) return false;
   if (!isIsoDate(value.nutritionStartDateISO)) return false;
-  if (!isRecord(value.trainingDayMap)) return false;
+  if (!Array.isArray(value.trainingDays)) return false;
+  if (!value.trainingDays.every((day) => isString(day) && DAY_ORDER.includes(day as DayOfWeek))) {
+    return false;
+  }
 
-  return (
-    isTrainingDayNumber(value.trainingDayMap.Tue) &&
-    isTrainingDayNumber(value.trainingDayMap.Wed) &&
-    isTrainingDayNumber(value.trainingDayMap.Sat) &&
-    isTrainingDayNumber(value.trainingDayMap.Sun)
-  );
+  const unique = new Set(value.trainingDays);
+  return unique.size === value.trainingDays.length;
 }

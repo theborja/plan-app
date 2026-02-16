@@ -16,6 +16,7 @@ type MealBlock = { mealType: MealType; startRow: number; endRow: number };
 
 export type ParsePlanNutricionalDebug = {
   headerRowIndex?: number;
+  weekColumns?: WeekColumnMap[];
   week1Columns?: WeekColumnMap;
   week2Columns?: WeekColumnMap;
   mealBlocks?: Array<{ mealType: MealType; startRow: number; endRow: number }>;
@@ -121,22 +122,23 @@ function pickWeekColumns(matches: DayColumnMatch[], minCol: number): WeekColumnM
   return weekColumns;
 }
 
-function detectWeekColumns(dayMatches: DayColumnMatch[]): {
-  week1Columns: WeekColumnMap;
-  week2Columns: WeekColumnMap;
-} {
+function detectWeekColumns(dayMatches: DayColumnMatch[]): WeekColumnMap[] {
   const sorted = [...dayMatches].sort((a, b) => a.colIndex - b.colIndex);
-  const week1Columns = pickWeekColumns(sorted, -1);
-  if (!week1Columns) {
-    throw new Error("Could not detect week 1 columns.");
+  const weekColumns: WeekColumnMap[] = [];
+  let cursor = -1;
+
+  while (true) {
+    const detected = pickWeekColumns(sorted, cursor);
+    if (!detected) break;
+    weekColumns.push(detected);
+    cursor = detected.Sun;
   }
 
-  const week2Columns = pickWeekColumns(sorted, week1Columns.Sun);
-  if (!week2Columns) {
-    throw new Error("Could not detect week 2 columns.");
+  if (weekColumns.length === 0) {
+    throw new Error("Could not detect nutrition day columns.");
   }
 
-  return { week1Columns, week2Columns };
+  return weekColumns;
 }
 
 function detectMealType(value: string): MealType | null {
@@ -290,7 +292,7 @@ export function splitIntoOptions(text: string): string[][] {
 
 function buildMenuOptions(
   text: string,
-  weekIndex: 1 | 2,
+  weekIndex: number,
   dayOfWeek: DayOfWeek,
   mealType: MealType,
 ): MenuOption[] {
@@ -313,7 +315,7 @@ export function parsePlanNutricional(
   debug?: ParsePlanNutricionalDebug,
 ): NutritionPlan {
   const { headerRowIndex, dayMatches } = findHeaderRow(sheetMatrix);
-  const { week1Columns, week2Columns } = detectWeekColumns(dayMatches);
+  const weekColumns = detectWeekColumns(dayMatches);
   const mealBlocks = detectMealBlocks(sheetMatrix, headerRowIndex + 1);
   const mealByType = new Map<MealType, MealBlock>();
 
@@ -325,8 +327,9 @@ export function parsePlanNutricional(
 
   if (debug) {
     debug.headerRowIndex = headerRowIndex;
-    debug.week1Columns = week1Columns;
-    debug.week2Columns = week2Columns;
+    debug.weekColumns = weekColumns;
+    debug.week1Columns = weekColumns[0];
+    debug.week2Columns = weekColumns[1];
     debug.mealBlocks = mealBlocks.map((block) => ({
       mealType: block.mealType,
       startRow: block.startRow,
@@ -336,8 +339,9 @@ export function parsePlanNutricional(
 
   const days: NutritionDay[] = [];
 
-  for (const weekIndex of [1, 2] as const) {
-    const columns = weekIndex === 1 ? week1Columns : week2Columns;
+  for (let weekOffset = 0; weekOffset < weekColumns.length; weekOffset += 1) {
+    const weekIndex = weekOffset + 1;
+    const columns = weekColumns[weekOffset];
 
     for (const dayOfWeek of ORDERED_DAYS) {
       const meals = {
@@ -372,7 +376,7 @@ export function parsePlanNutricional(
   }
 
   return {
-    cycleWeeks: 2,
+    cycleWeeks: weekColumns.length,
     days,
   };
 }

@@ -2,7 +2,7 @@ export type PlanVersion = 1;
 export type SelectionsVersion = 1;
 export type SettingsVersion = 1;
 
-export type TrainingDayNumber = 1 | 2 | 3 | 4;
+export type TrainingDayNumber = number;
 export type DayOfWeek = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 export type MealType =
   | "DESAYUNO"
@@ -26,13 +26,13 @@ export type MenuOption = {
 };
 
 export type NutritionDay = {
-  weekIndex: 1 | 2;
+  weekIndex: number;
   dayOfWeek: DayOfWeek;
   meals: Record<MealType, MenuOption[]>;
 };
 
 export type NutritionPlan = {
-  cycleWeeks: 2;
+  cycleWeeks: number;
   days: NutritionDay[];
 };
 
@@ -95,5 +95,5 @@ export type SelectionsV1 = {
 export type SettingsV1 = {
   version: SettingsVersion;
   nutritionStartDateISO: string;
-  trainingDayMap: TrainingDayMap;
+  trainingDays: DayOfWeek[];
 };
