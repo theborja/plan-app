@@ -1,18 +1,11 @@
 import type { DayOfWeek, MealType, MenuOption, NutritionDay, NutritionPlan } from "@/lib/types";
 
 const ORDERED_DAYS: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const MEAL_TYPES: MealType[] = [
-  "DESAYUNO",
-  "ALMUERZO",
-  "COMIDA",
-  "MERIENDA",
-  "CENA",
-  "POSTRE",
-];
 
 type DayColumnMatch = { colIndex: number; dayOfWeek: DayOfWeek };
 type WeekColumnMap = Record<DayOfWeek, number>;
 type MealBlock = { mealType: MealType; startRow: number; endRow: number };
+type MainMealType = Exclude<MealType, "POSTRE">;
 
 export type ParsePlanNutricionalDebug = {
   headerRowIndex?: number;
@@ -154,11 +147,29 @@ function detectMealType(value: string): MealType | null {
   return null;
 }
 
+function isMainMealType(value: MealType): value is MainMealType {
+  return value !== "POSTRE";
+}
+
+function isObservationsRow(row: unknown[]): boolean {
+  const sample = [asCellText(row[0]), asCellText(row[1]), asCellText(row[2])]
+    .map((value) => normalizeToken(value))
+    .join(" ");
+
+  return sample.includes("OBSERVACIONES") || sample.includes("SUPLEMENTACION");
+}
+
 function detectMealBlocks(sheetMatrix: unknown[][], fromRowIndex: number): MealBlock[] {
   const starts: Array<{ mealType: MealType; startRow: number }> = [];
+  let scanEndRow = sheetMatrix.length - 1;
 
   for (let rowIndex = fromRowIndex; rowIndex < sheetMatrix.length; rowIndex += 1) {
     const row = sheetMatrix[rowIndex] ?? [];
+    if (isObservationsRow(row)) {
+      scanEndRow = rowIndex - 1;
+      break;
+    }
+
     const mealType = detectMealType(asCellText(row[0]));
     if (mealType) {
       starts.push({ mealType, startRow: rowIndex });
@@ -170,7 +181,7 @@ function detectMealBlocks(sheetMatrix: unknown[][], fromRowIndex: number): MealB
     return {
       mealType: start.mealType,
       startRow: start.startRow,
-      endRow: next ? next.startRow - 1 : sheetMatrix.length - 1,
+      endRow: next ? next.startRow - 1 : scanEndRow,
     };
   });
 }
@@ -295,10 +306,11 @@ function buildMenuOptions(
   weekIndex: number,
   dayOfWeek: DayOfWeek,
   mealType: MealType,
+  offset = 0,
 ): MenuOption[] {
   const chunks = splitIntoOptions(text);
   return chunks.map((lines, index) => {
-    const n = index + 1;
+    const n = offset + index + 1;
     const firstLine = lines.find((line) => line.trim().length > 0);
     const title = firstLine ? firstLine.slice(0, 60) : `Opcion ${n}`;
 
@@ -317,13 +329,6 @@ export function parsePlanNutricional(
   const { headerRowIndex, dayMatches } = findHeaderRow(sheetMatrix);
   const weekColumns = detectWeekColumns(dayMatches);
   const mealBlocks = detectMealBlocks(sheetMatrix, headerRowIndex + 1);
-  const mealByType = new Map<MealType, MealBlock>();
-
-  for (const block of mealBlocks) {
-    if (!mealByType.has(block.mealType)) {
-      mealByType.set(block.mealType, block);
-    }
-  }
 
   if (debug) {
     debug.headerRowIndex = headerRowIndex;
@@ -353,10 +358,16 @@ export function parsePlanNutricional(
         POSTRE: [] as MenuOption[],
       };
 
-      for (const mealType of MEAL_TYPES) {
-        const block = mealByType.get(mealType);
-        if (!block) {
-          continue;
+      let previousMainMeal: MainMealType | null = null;
+
+      for (const block of mealBlocks) {
+        let targetMealType: MealType = block.mealType;
+
+        if (block.mealType === "POSTRE") {
+          // El postre pertenece al bloque principal anterior (comida o cena).
+          targetMealType = previousMainMeal ?? "POSTRE";
+        } else if (isMainMealType(block.mealType)) {
+          previousMainMeal = block.mealType;
         }
 
         const cellText = collectCellTextByBlock(sheetMatrix, block, columns[dayOfWeek]);
@@ -364,7 +375,14 @@ export function parsePlanNutricional(
           continue;
         }
 
-        meals[mealType] = buildMenuOptions(cellText, weekIndex, dayOfWeek, mealType);
+        const options = buildMenuOptions(
+          cellText,
+          weekIndex,
+          dayOfWeek,
+          targetMealType,
+          meals[targetMealType].length,
+        );
+        meals[targetMealType].push(...options);
       }
 
       days.push({

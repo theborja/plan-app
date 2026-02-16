@@ -16,6 +16,16 @@ const DEFAULT_TRAINING_DAY_MAP: TrainingDayMap = {
 const DEFAULT_TRAINING_DAYS: DayOfWeek[] = ["Tue", "Wed", "Sat", "Sun"];
 const DAY_ORDER: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+const WEEKDAY_PATTERNS: Record<number, DayOfWeek[]> = {
+  1: ["Mon"],
+  2: ["Mon", "Thu"],
+  3: ["Mon", "Wed", "Fri"],
+  4: ["Mon", "Tue", "Thu", "Fri"],
+  5: ["Mon", "Tue", "Thu", "Fri", "Sat"],
+  6: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  7: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+};
+
 function isBrowser() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
@@ -43,11 +53,61 @@ function safeWrite(key: string, value: unknown): void {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
-export function defaultSettingsV1(date = new Date()): SettingsV1 {
+function normalizeToken(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseDayFromLabel(label: string): DayOfWeek | null {
+  const token = normalizeToken(label);
+  if (!token) return null;
+
+  if (token.includes("LUNES") || token.includes("MONDAY")) return "Mon";
+  if (token.includes("MARTES") || token.includes("TUESDAY")) return "Tue";
+  if (token.includes("MIERCOLES") || token.includes("WEDNESDAY")) return "Wed";
+  if (token.includes("JUEVES") || token.includes("THURSDAY")) return "Thu";
+  if (token.includes("VIERNES") || token.includes("FRIDAY")) return "Fri";
+  if (token.includes("SABADO") || token.includes("SATURDAY")) return "Sat";
+  if (token.includes("DOMINGO") || token.includes("SUNDAY")) return "Sun";
+
+  return null;
+}
+
+function inferTrainingDaysFromPlan(plan: PlanV1 | null): DayOfWeek[] {
+  if (!plan || plan.training.days.length === 0) {
+    return [...DEFAULT_TRAINING_DAYS];
+  }
+
+  const fromLabels = plan.training.days
+    .map((day) => parseDayFromLabel(day.label))
+    .filter((value): value is DayOfWeek => value !== null);
+
+  const uniqueByLabel = [...new Set(fromLabels)].sort(
+    (a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b),
+  );
+
+  if (uniqueByLabel.length > 0) {
+    return uniqueByLabel;
+  }
+
+  const dayCount = Math.max(1, Math.min(7, plan.training.days.length));
+  return [...(WEEKDAY_PATTERNS[dayCount] ?? DAY_ORDER.slice(0, dayCount))];
+}
+
+function loadPlanFromStorage(): PlanV1 | null {
+  const parsed = safeRead(STORAGE_KEYS.plan);
+  return isPlanV1(parsed) ? parsed : null;
+}
+
+export function defaultSettingsV1(date = new Date(), plan: PlanV1 | null = null): SettingsV1 {
   return {
     version: 1,
     nutritionStartDateISO: getTodayISO(date),
-    trainingDays: [...DEFAULT_TRAINING_DAYS],
+    trainingDays: inferTrainingDaysFromPlan(plan),
   };
 }
 
@@ -151,7 +211,7 @@ export function loadSettingsV1(): SettingsV1 {
     }
   }
 
-  const fallback = defaultSettingsV1();
+  const fallback = defaultSettingsV1(new Date(), loadPlanFromStorage());
   saveSettingsV1(fallback);
   return fallback;
 }

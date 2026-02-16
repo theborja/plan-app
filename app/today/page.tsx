@@ -134,6 +134,7 @@ export default function TodayPage() {
     !!trainingDay &&
     trainingDay.exercises.length > 0 &&
     doneExerciseIndexes.length >= trainingDay.exercises.length;
+  const trainingStatusOk = !trainingDay || trainingDone;
 
   const cleanedTrainingLabel = trainingDay
     ? trainingDay.label.replace(/^DIA\s*\d+\s*[-:]\s*/i, "").trim()
@@ -183,8 +184,9 @@ export default function TodayPage() {
 
   return (
     <div className="space-y-4">
-      <Card title="Resumen de hoy">
-        <div className="space-y-3 text-sm text-[var(--muted)]">
+      <section className="rounded-[var(--radius-card)] border border-[color:color-mix(in_oklab,var(--primary-end)_50%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] p-4 shadow-[0_10px_24px_rgba(108,93,211,0.16)] animate-card">
+        <h2 className="text-base font-semibold text-[var(--foreground)]">Resumen de hoy</h2>
+        <div className="mt-3 space-y-3 text-sm text-[var(--muted)]">
           <p className="font-semibold text-[var(--foreground)]">{formatDayLabel(isoDate)}</p>
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2">
             <button
@@ -213,15 +215,15 @@ export default function TodayPage() {
               <span
                 className={[
                   "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                  trainingDone ? "bg-emerald-100 text-emerald-700" : "bg-zinc-200 text-zinc-600",
+                  trainingStatusOk ? "bg-emerald-100 text-emerald-700" : "bg-zinc-200 text-zinc-600",
                 ].join(" ")}
               >
-                {trainingDone ? "OK" : "PEND"}
+                {trainingStatusOk ? "OK" : "PEND"}
               </span>
             </Link>
           </div>
         </div>
-      </Card>
+      </section>
 
       <Card title="Menu completo del dia">
         <div className="space-y-3">
@@ -297,7 +299,14 @@ export default function TodayPage() {
             >
               {"<"}
             </button>
-            <span className="text-xs font-semibold text-[var(--muted)]">{currentOption.optionLabel}</span>
+            <div className="flex min-w-0 flex-1 flex-col items-center">
+              <span className="rounded-full bg-gradient-to-r from-[var(--primary-start)]/20 to-[var(--primary-end)]/20 px-4 py-1 text-base font-bold tracking-tight text-[var(--foreground)]">
+                {currentOption.optionLabel}
+              </span>
+              <span className="mt-1 text-[11px] font-medium text-[var(--muted)]">
+                {currentOptionIndex + 1} de {dailyMenuOptions.length}
+              </span>
+            </div>
             <button
               type="button"
               className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-soft)] text-base font-semibold text-[var(--muted)]"

@@ -35,6 +35,24 @@ function getMostRecentWeightEntry(raw: string | undefined | null): string {
   return entries[entries.length - 1];
 }
 
+function splitStoredSeriesWeights(value: string | undefined, seriesCount: number): string[] {
+  const count = Math.max(1, seriesCount);
+  if (!value || !value.trim()) {
+    return Array.from({ length: count }, () => "");
+  }
+
+  const parts = value.includes("||")
+    ? value.split("||").map((part) => part.trim())
+    : [value.trim()];
+
+  const normalized = Array.from({ length: count }, (_, index) => parts[index] ?? "");
+  return normalized;
+}
+
+function joinSeriesWeights(values: string[]): string {
+  return values.map((value) => value.trim()).join("||");
+}
+
 function addDays(isoDate: string, amount: number): string {
   const [year, month, day] = isoDate.split("-").map(Number);
   const date = new Date(year, (month ?? 1) - 1, day ?? 1);
@@ -160,11 +178,19 @@ export default function WorkoutPage() {
       />
     </div>
   );
+  const highlightedDayPicker = (
+    <div className="rounded-xl border border-[color:color-mix(in_oklab,var(--primary-end)_45%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface-soft)_75%,var(--primary-end)_25%)] p-2">
+      {dayPicker}
+    </div>
+  );
 
   if (!trainingToday) {
     return (
       <div className="space-y-4">
-        <Card title="Fecha de consulta">{dayPicker}</Card>
+        <section className="rounded-[var(--radius-card)] border border-[color:color-mix(in_oklab,var(--primary-end)_50%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] p-4 shadow-[0_10px_24px_rgba(108,93,211,0.16)] animate-card">
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Fecha de consulta</h2>
+          <div className="mt-3">{highlightedDayPicker}</div>
+        </section>
         <Card title="Entreno de hoy" subtitle="Dia de descanso">
           <p className="text-sm font-semibold text-[var(--foreground)]">Descanso</p>
           {nextTraining ? (
@@ -199,38 +225,42 @@ export default function WorkoutPage() {
 
   return (
     <div className="space-y-4">
-      <Card title={trainingDay.label}>
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-[var(--muted)]">{formatDayLabel(selectedIsoDate)}</p>
-          <label className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)]">
-            <input
-              type="checkbox"
-              checked={allDone}
-              onChange={(event) => {
-                if (event.target.checked) {
-                  updateWorkout({
-                    doneExerciseIndexes: trainingDay.exercises.map((_, idx) => idx),
-                  });
-                } else {
-                  updateWorkout({ doneExerciseIndexes: [] });
-                }
-              }}
-            />
-            Marcar todo
-          </label>
+      <section className="rounded-[var(--radius-card)] border border-[color:color-mix(in_oklab,var(--primary-end)_50%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] p-4 shadow-[0_10px_24px_rgba(108,93,211,0.16)] animate-card">
+        <h2 className="text-base font-semibold text-[var(--foreground)]">{trainingDay.label}</h2>
+        <div className="mt-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-[var(--muted)]">{formatDayLabel(selectedIsoDate)}</p>
+            <label className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)]">
+              <input
+                type="checkbox"
+                checked={allDone}
+                onChange={(event) => {
+                  if (event.target.checked) {
+                    updateWorkout({
+                      doneExerciseIndexes: trainingDay.exercises.map((_, idx) => idx),
+                    });
+                  } else {
+                    updateWorkout({ doneExerciseIndexes: [] });
+                  }
+                }}
+              />
+              Marcar todo
+            </label>
+          </div>
+          <div className="mt-2">{highlightedDayPicker}</div>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Hechos: {doneIndexes.length}/{trainingDay.exercises.length}
+          </p>
         </div>
-        <div className="mt-2">{dayPicker}</div>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Hechos: {doneIndexes.length}/{trainingDay.exercises.length}
-        </p>
-      </Card>
+      </section>
 
       {trainingDay.exercises.map((exercise, index) => {
         const isDone = doneIndexes.includes(index);
         const exerciseKey = String(index);
         const storedWeight = lastWeightByExerciseIndex[exerciseKey];
         const fallbackMostRecent = getMostRecentWeightEntry(exercise.notes);
-        const lastWeightValue = storedWeight ?? fallbackMostRecent;
+        const seriesCount = Math.max(1, exercise.series ?? 1);
+        const seriesWeights = splitStoredSeriesWeights(storedWeight ?? fallbackMostRecent, seriesCount);
         return (
           <Card key={exercise.id || `${trainingDay.dayIndex}-${index}`}>
             <div className="space-y-2">
@@ -269,27 +299,34 @@ export default function WorkoutPage() {
               </div>
 
               <div className="space-y-1">
-                <label
-                  htmlFor={`last-weight-${index}`}
-                  className="text-xs font-medium text-[var(--muted)]"
+                <p className="text-xs font-medium text-[var(--muted)]">Peso por serie</p>
+                <div
+                  className={[
+                    "grid gap-1.5",
+                    seriesCount >= 4 ? "grid-cols-4" : "grid-cols-3",
+                  ].join(" ")}
                 >
-                  Ultimo peso usado
-                </label>
-                <input
-                  id={`last-weight-${index}`}
-                  type="text"
-                  inputMode="decimal"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm text-[var(--foreground)]"
-                  placeholder="Ej: 60 kg"
-                  value={lastWeightValue}
-                  onChange={(event) => {
-                    const nextWeights = {
-                      ...lastWeightByExerciseIndex,
-                      [exerciseKey]: event.target.value,
-                    };
-                    updateWorkout({ lastWeightByExerciseIndex: nextWeights });
-                  }}
-                />
+                  {seriesWeights.map((weight, setIndex) => (
+                    <input
+                      key={`${exerciseKey}-${setIndex}`}
+                      type="text"
+                      inputMode="decimal"
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--foreground)]"
+                      placeholder={`S${setIndex + 1}`}
+                      value={weight}
+                      onChange={(event) => {
+                        const nextSeriesWeights = [...seriesWeights];
+                        nextSeriesWeights[setIndex] = event.target.value;
+
+                        const nextWeights = {
+                          ...lastWeightByExerciseIndex,
+                          [exerciseKey]: joinSeriesWeights(nextSeriesWeights),
+                        };
+                        updateWorkout({ lastWeightByExerciseIndex: nextWeights });
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
 
               {exercise.notes && !exercise.notes.includes("|") ? (
