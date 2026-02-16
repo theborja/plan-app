@@ -45,7 +45,7 @@ export default function LoginPage() {
                 "w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:ring-2 focus:ring-blue-500",
                 error ? "ring-1 ring-rose-400" : "",
               ].join(" ")}
-              placeholder="admin"
+              placeholder=""
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
@@ -59,7 +59,7 @@ export default function LoginPage() {
                 "w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:ring-2 focus:ring-blue-500",
                 error ? "ring-1 ring-rose-400" : "",
               ].join(" ")}
-              placeholder="admin"
+              placeholder=""
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
