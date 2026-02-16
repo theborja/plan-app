@@ -6,7 +6,7 @@ import BottomSheet from "@/components/BottomSheet";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
-import { formatDayLabel, getLocalISODate, getNutritionWeekIndex } from "@/lib/date";
+import { formatDayLabel, getCycleDayIndex, getLocalISODate } from "@/lib/date";
 import { resolveTrainingDay } from "@/lib/planResolver";
 import {
   defaultSelectionsV1,
@@ -31,7 +31,7 @@ const DAY_ORDER: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 type DailyMenuOption = {
   optionId: string;
   optionLabel: string;
-  weekIndex: 1 | 2;
+  weekIndex: number;
   meals: Array<{ mealType: MealType; lines: string[] }>;
 };
 
@@ -44,9 +44,6 @@ export default function TodayPage() {
   const [currentOptionIndex, setCurrentOptionIndex] = useState(0);
 
   const isoDate = getLocalISODate();
-  const weekIndex = settings
-    ? getNutritionWeekIndex(isoDate, settings.nutritionStartDateISO, 2)
-    : 1;
 
   useEffect(() => {
     setPlan(loadPlanV1());
@@ -98,10 +95,10 @@ export default function TodayPage() {
     dailyMenuOptions?.find((option) => option.optionId === selectedDailyMenuOptionId) ?? null;
 
   useEffect(() => {
-    if (!dailyMenuOptions) return;
-    const idx = dailyMenuOptions.findIndex((option) => option.weekIndex === weekIndex);
-    setCurrentOptionIndex(idx === -1 ? 0 : idx);
-  }, [dailyMenuOptions, weekIndex]);
+    if (!dailyMenuOptions || !settings) return;
+    const idx = getCycleDayIndex(isoDate, settings.nutritionStartDateISO, dailyMenuOptions.length);
+    setCurrentOptionIndex(idx);
+  }, [dailyMenuOptions, isoDate, settings]);
 
   function updateDailyMenuSelection(patch: {
     selectedDayOptionId?: string;

@@ -18,10 +18,18 @@ import {
   saveSelectionsV1,
   saveSettingsV1,
 } from "@/lib/storage";
-import type { PlanV1, SelectionsV1, SettingsV1, TrainingDayNumber } from "@/lib/types";
+import type { PlanV1, SelectionsV1, SettingsV1 } from "@/lib/types";
 import { isSelectionsV1 } from "@/lib/validate";
 
-const MAP_KEYS = ["Tue", "Wed", "Sat", "Sun"] as const;
+const DAYS: Array<{ key: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun"; label: string }> = [
+  { key: "Mon", label: "Lun" },
+  { key: "Tue", label: "Mar" },
+  { key: "Wed", label: "Mie" },
+  { key: "Thu", label: "Jue" },
+  { key: "Fri", label: "Vie" },
+  { key: "Sat", label: "Sab" },
+  { key: "Sun", label: "Dom" },
+];
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -49,16 +57,21 @@ export default function SettingsPage() {
     saveSettingsV1(next);
   }
 
-  function updateTrainingMapDay(day: (typeof MAP_KEYS)[number], value: TrainingDayNumber) {
+  function toggleTrainingDay(day: (typeof DAYS)[number]["key"]) {
     if (!settings) return;
+
+    const exists = settings.trainingDays.includes(day);
+    const nextTrainingDays = exists
+      ? settings.trainingDays.filter((value) => value !== day)
+      : [...settings.trainingDays, day].sort(
+          (a, b) => DAYS.findIndex((d) => d.key === a) - DAYS.findIndex((d) => d.key === b),
+        );
+
     updateSettings({
       ...settings,
-      trainingDayMap: {
-        ...settings.trainingDayMap,
-        [day]: value,
-      },
+      trainingDays: nextTrainingDays,
     });
-    setToast({ message: "Ajustes guardados.", tone: "success" });
+    setToast({ message: "Dias de entrenamiento actualizados.", tone: "success" });
   }
 
   async function handleImportSelections(file: File | null) {
@@ -135,26 +148,30 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <Card title="Training day map" subtitle="Relacion entre dia real y DIA 1..4 del plan">
-        <div className="space-y-3">
-          {MAP_KEYS.map((day) => (
-            <label key={day} className="flex items-center justify-between gap-3 text-sm">
-              <span className="font-medium text-zinc-800">{day}</span>
-              <select
-                className="rounded-lg border border-zinc-300 px-2 py-1"
-                value={settings.trainingDayMap[day]}
-                onChange={(event) =>
-                  updateTrainingMapDay(day, Number(event.target.value) as TrainingDayNumber)
-                }
+      <Card title="Entrenamiento" subtitle="Elige que dias entrenas y cuales descansas">
+        <div className="grid grid-cols-4 gap-2">
+          {DAYS.map((day) => {
+            const active = settings.trainingDays.includes(day.key);
+            return (
+              <button
+                key={day.key}
+                type="button"
+                onClick={() => toggleTrainingDay(day.key)}
+                className={[
+                  "rounded-xl border px-3 py-2 text-sm font-semibold transition",
+                  active
+                    ? "border-emerald-500 bg-emerald-500 text-white"
+                    : "border-[var(--border)] bg-[var(--surface-soft)] text-[var(--muted)]",
+                ].join(" ")}
               >
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-              </select>
-            </label>
-          ))}
+                {day.label}
+              </button>
+            );
+          })}
         </div>
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          Dias activos: {settings.trainingDays.length === 0 ? "ninguno" : settings.trainingDays.join(", ")}
+        </p>
       </Card>
 
       <Card title="Importar / Exportar" subtitle="Respalda o restaura datos locales en JSON">

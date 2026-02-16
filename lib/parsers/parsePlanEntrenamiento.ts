@@ -206,8 +206,8 @@ export function parsePlanEntrenamiento(sheetMatrix: unknown[][]): TrainingPlan {
     parsedDays.push({
       dayIndex,
       day: {
-        dayIndex: dayIndex as 1 | 2 | 3 | 4,
-        day: dayIndex as 1 | 2 | 3 | 4,
+        dayIndex,
+        day: dayIndex,
         label: block.label || `DIA ${dayIndex}`,
         exercises,
       },

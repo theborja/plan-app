@@ -7,11 +7,13 @@ import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
 import {
   formatDayLabel,
+  getAutoTrainingWeekdays,
   getDayOfWeek,
   getLocalISODate,
   getNextTrainingDay,
   isTrainingDay,
 } from "@/lib/date";
+import { resolveTrainingDay } from "@/lib/planResolver";
 import { loadPlanV1, loadSelectionsV1, loadSettingsV1, saveSelectionsV1 } from "@/lib/storage";
 import type { PlanV1, SelectionsV1, SettingsV1 } from "@/lib/types";
 
@@ -51,8 +53,12 @@ export default function WorkoutPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const dayOfWeek = getDayOfWeek(selectedIsoDate);
-  const trainingToday = isTrainingDay(dayOfWeek);
-  const nextTraining = getNextTrainingDay(selectedIsoDate);
+  const trainingWeekdays =
+    settings && settings.trainingDays.length > 0
+      ? settings.trainingDays
+      : getAutoTrainingWeekdays(plan?.training.days.length ?? 0);
+  const trainingToday = isTrainingDay(dayOfWeek, trainingWeekdays);
+  const nextTraining = trainingWeekdays.length > 0 ? getNextTrainingDay(selectedIsoDate, trainingWeekdays) : null;
 
   useEffect(() => {
     setPlan(loadPlanV1());
@@ -63,13 +69,8 @@ export default function WorkoutPage() {
 
   const trainingDay = useMemo(() => {
     if (!plan || !settings || !trainingToday) return null;
-    const dayIndex = settings.trainingDayMap[dayOfWeek];
-    return (
-      plan.training.days.find(
-        (day, index) => day.dayIndex === dayIndex || index === dayIndex - 1,
-      ) ?? null
-    );
-  }, [plan, settings, trainingToday, dayOfWeek]);
+    return resolveTrainingDay(plan, selectedIsoDate, settings);
+  }, [plan, settings, trainingToday, selectedIsoDate]);
 
   const doneIndexes = selections?.byDate?.[selectedIsoDate]?.workout?.doneExerciseIndexes ?? [];
   const lastWeightByExerciseIndex =
@@ -166,9 +167,13 @@ export default function WorkoutPage() {
         <Card title="Fecha de consulta">{dayPicker}</Card>
         <Card title="Entreno de hoy" subtitle="Dia de descanso">
           <p className="text-sm font-semibold text-[var(--foreground)]">Descanso</p>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Proximo entreno: {formatDayLabel(nextTraining.isoDate)} ({nextTraining.dayOfWeek})
-          </p>
+          {nextTraining ? (
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Proximo entreno: {formatDayLabel(nextTraining.isoDate)} ({nextTraining.dayOfWeek})
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-[var(--muted)]">No hay dias de entrenamiento definidos.</p>
+          )}
         </Card>
         <EmptyState
           title="El musculo crece en el descanso"
