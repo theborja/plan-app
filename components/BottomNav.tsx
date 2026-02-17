@@ -73,7 +73,10 @@ export default function BottomNav() {
     <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-[var(--border)] bg-[var(--surface)]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur">
       <ul className="grid gap-1" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
         {visibleTabs.map((tab) => {
-          const isActive = pathname === tab.href;
+          const isActive =
+            tab.href === "/progress"
+              ? pathname === "/progress" || pathname.startsWith("/progress/")
+              : pathname === tab.href;
 
           return (
             <li key={tab.href}>

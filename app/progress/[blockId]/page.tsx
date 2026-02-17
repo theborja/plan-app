@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
-import { buildProgressBlocks, type ProgressPoint } from "@/lib/progress";
+import { formatDateDDMMYYYY } from "@/lib/date";
+import { buildProgressBlocks, type ProgressPoint, withMockProgressData } from "@/lib/progress";
 import { loadPlanV1, loadSelectionsV1, loadSettingsV1 } from "@/lib/storage";
 import type { PlanV1, SelectionsV1, SettingsV1 } from "@/lib/types";
 
-type Period = "week" | "month" | "all";
+type Period = "week" | "month";
 
 function parseIsoDate(isoDate: string): Date {
   const [y, m, d] = isoDate.split("-").map(Number);
@@ -30,18 +31,40 @@ function toneFromDelta(value: number | null): string {
   return "text-[var(--muted)]";
 }
 
+function monthKey(isoDate: string): string {
+  return isoDate.slice(0, 7);
+}
+
+function aggregateByMonth(points: ProgressPoint[]): ProgressPoint[] {
+  const byMonth = new Map<string, ProgressPoint>();
+  for (const point of points) {
+    byMonth.set(monthKey(point.isoDate), point);
+  }
+  return Array.from(byMonth.values()).sort((a, b) => a.isoDate.localeCompare(b.isoDate));
+}
+
 function filterPointsByPeriod(points: ProgressPoint[], period: Period): ProgressPoint[] {
-  if (period === "all") return points;
   if (points.length === 0) return [];
 
   const latest = parseIsoDate(points[points.length - 1].isoDate);
   const minDate = new Date(latest);
-  minDate.setDate(minDate.getDate() - (period === "week" ? 42 : 180));
+  minDate.setDate(minDate.getDate() - (period === "week" ? 84 : 365));
 
-  return points.filter((point) => parseIsoDate(point.isoDate) >= minDate);
+  const scoped = points.filter((point) => parseIsoDate(point.isoDate) >= minDate);
+  if (period === "week") {
+    return scoped;
+  }
+
+  return aggregateByMonth(scoped);
 }
 
-function MainChart({ points }: { points: ProgressPoint[] }) {
+function MainChart({ points, period }: { points: ProgressPoint[]; period: Period }) {
+  const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    setSelectedPointIndex(null);
+  }, [period, points]);
+
   if (points.length === 0) {
     return (
       <div className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-4 text-sm text-[var(--muted)]">
@@ -68,40 +91,83 @@ function MainChart({ points }: { points: ProgressPoint[] }) {
   });
 
   const polyline = chartPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const labels =
+    period === "month"
+      ? points.map((point) => formatDateDDMMYYYY(point.isoDate))
+      : points.map((_, index) => `Semana ${index + 1}`);
+  const first = points[0];
+  const last = points[points.length - 1];
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 h-44 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)]">
-      <defs>
-        <linearGradient id="progressFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="var(--primary-end)" stopOpacity="0.24" />
-          <stop offset="100%" stopColor="var(--primary-end)" stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-      <polyline fill="none" stroke="var(--primary-end)" strokeWidth="3" points={polyline} />
-      {chartPoints.map((point, idx) => (
-        <circle
-          key={`${point.x}-${point.y}-${idx}`}
-          cx={point.x}
-          cy={point.y}
-          r="4"
-          fill="var(--surface)"
-          stroke="var(--primary-end)"
-          strokeWidth="2"
-        />
-      ))}
-      <text x={padding} y={height - 4} fontSize="10" fill="var(--muted)">
-        {points[0].isoDate}
-      </text>
-      <text x={width - padding - 56} y={height - 4} fontSize="10" fill="var(--muted)">
-        {points[points.length - 1].isoDate}
-      </text>
-    </svg>
+    <div className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-2">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full">
+        <defs>
+          <linearGradient id="progressFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--primary-end)" stopOpacity="0.24" />
+            <stop offset="100%" stopColor="var(--primary-end)" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <polyline fill="none" stroke="var(--primary-end)" strokeWidth="3" points={polyline} />
+        {chartPoints.map((point, idx) => (
+          <g key={`${point.x}-${point.y}-${idx}`}>
+            <circle
+              cx={point.x}
+              cy={point.y}
+              r="4"
+              fill="var(--surface)"
+              stroke="var(--primary-end)"
+              strokeWidth="2"
+              className="cursor-pointer"
+              onClick={() => setSelectedPointIndex((prev) => (prev === idx ? null : idx))}
+            />
+          </g>
+        ))}
+        {selectedPointIndex !== null ? (
+          <g>
+            <rect
+              x={Math.max(8, chartPoints[selectedPointIndex].x - 26)}
+              y={Math.max(4, chartPoints[selectedPointIndex].y - 24)}
+              width="52"
+              height="16"
+              rx="8"
+              fill="var(--surface)"
+              stroke="var(--border)"
+            />
+            <text
+              x={chartPoints[selectedPointIndex].x}
+              y={Math.max(15, chartPoints[selectedPointIndex].y - 13)}
+              fontSize="9"
+              textAnchor="middle"
+              fill="var(--foreground)"
+              className="font-semibold"
+            >
+              {points[selectedPointIndex].weightKg} kg
+            </text>
+          </g>
+        ) : null}
+      </svg>
+      <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] text-[var(--muted)]">
+        <span className="truncate">{labels[0]}</span>
+        <span className="text-center font-semibold text-[var(--foreground)]">
+          {first.weightKg} kg {"->"} {last.weightKg} kg
+        </span>
+        <span className="truncate text-right">{labels[labels.length - 1]}</span>
+      </div>
+      <div className="mt-1 grid grid-cols-2 gap-2 text-[10px] text-[var(--muted)]">
+        <span>Inicio: {formatDateDDMMYYYY(first.isoDate)}</span>
+        <span className="text-right">Actual: {formatDateDDMMYYYY(last.isoDate)}</span>
+      </div>
+    </div>
   );
 }
 
 export default function ProgressBlockDetailPage() {
   const params = useParams<{ blockId: string }>();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const blockId = params?.blockId ?? "";
+  const mockEnabled = searchParams.get("mock") === "1";
+  const requestedExercise = Number(searchParams.get("exercise"));
 
   const [plan, setPlan] = useState<PlanV1 | null>(null);
   const [settings, setSettings] = useState<SettingsV1 | null>(null);
@@ -119,14 +185,23 @@ export default function ProgressBlockDetailPage() {
 
   const blocks = useMemo(() => {
     if (!plan || !settings || !selections) return [];
-    return buildProgressBlocks(plan, selections, settings);
-  }, [plan, settings, selections]);
+    const base = buildProgressBlocks(plan, selections, settings);
+    const mockEnabled = searchParams.get("mock") === "1";
+    return mockEnabled ? withMockProgressData(base, 3) : base;
+  }, [plan, settings, selections, searchParams]);
 
   const block = blocks.find((item) => item.blockId === blockId) ?? null;
 
   useEffect(() => {
     setExerciseIndex(0);
   }, [blockId]);
+
+  useEffect(() => {
+    if (!block) return;
+    if (!Number.isInteger(requestedExercise) || requestedExercise < 0) return;
+    const clamped = Math.min(requestedExercise, Math.max(block.exercises.length - 1, 0));
+    setExerciseIndex(clamped);
+  }, [block, requestedExercise]);
 
   const exercise = block?.exercises[exerciseIndex] ?? null;
   const filteredPoints = useMemo(
@@ -152,6 +227,28 @@ export default function ProgressBlockDetailPage() {
     if (!reference) return null;
     return latest.weightKg - reference.weightKg;
   }, [exercise]);
+
+  const goToBlock = (targetBlockId: string): void => {
+    if (!targetBlockId || targetBlockId === blockId) return;
+    const params = new URLSearchParams();
+    if (mockEnabled) params.set("mock", "1");
+    params.set("exercise", String(exerciseIndex));
+    const query = params.toString();
+    const href = query ? `/progress/${targetBlockId}?${query}` : `/progress/${targetBlockId}`;
+    router.push(href);
+  };
+
+  const toggleMock = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (mockEnabled) {
+      params.delete("mock");
+    } else {
+      params.set("mock", "1");
+    }
+    const query = params.toString();
+    const href = query ? `/progress/${blockId}?${query}` : `/progress/${blockId}`;
+    router.push(href);
+  };
 
   if (!plan) {
     return (
@@ -199,35 +296,99 @@ export default function ProgressBlockDetailPage() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[var(--radius-card)] border border-[color:color-mix(in_oklab,var(--primary-end)_50%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] p-4 shadow-[0_10px_24px_rgba(108,93,211,0.16)] animate-card">
+      <section className="rounded-[18px] border border-[color:color-mix(in_oklab,var(--primary-end)_48%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_80%,var(--primary-end)_20%)] p-4 shadow-[0_14px_28px_rgba(108,93,211,0.16)] animate-card">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-[var(--foreground)]">Progreso {block.blockFullLabel}</h2>
-          <Link href="/progress" className="text-xs font-semibold text-[var(--primary-end)]">
-            Volver
+          <Link
+            href={mockEnabled ? "/progress?mock=1" : "/progress"}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-[var(--primary-end)]"
+            aria-label="Volver"
+          >
+            {"<"}
           </Link>
-        </div>
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {block.exercises.map((item, idx) => (
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Progreso</h2>
+          {mockEnabled ? (
+            <div className="flex items-center gap-1.5">
+              <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-[var(--muted)]">
+                Mock 3 meses
+              </span>
+              <button
+                type="button"
+                className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-[var(--primary-end)]"
+                onClick={toggleMock}
+              >
+                Sin mock
+              </button>
+            </div>
+          ) : (
             <button
-              key={`${item.exerciseIndex}-${item.exerciseName}`}
               type="button"
-              onClick={() => setExerciseIndex(idx)}
-              className={[
-                "shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition",
-                idx === exerciseIndex
-                  ? "bg-white text-[var(--foreground)] shadow-sm"
-                  : "bg-[var(--surface-soft)] text-[var(--muted)]",
-              ].join(" ")}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-[var(--primary-end)]"
+              aria-label="Activar mock"
+              onClick={toggleMock}
             >
-              {item.exerciseName}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+                <path d="M20 11a8 8 0 1 1-2.3-5.7" />
+                <path d="M20 4v7h-7" />
+              </svg>
             </button>
-          ))}
+          )}
+        </div>
+        <div className="mt-2">
+          <label className="sr-only" htmlFor="block-selector">
+            Seleccionar bloque
+          </label>
+          <select
+            id="block-selector"
+            value={block.blockId}
+            onChange={(event) => goToBlock(event.target.value)}
+            className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--foreground)]"
+          >
+            {blocks.map((item) => (
+              <option key={item.blockId} value={item.blockId}>
+                {item.blockFullLabel}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-2">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1 rounded-lg bg-white px-3 py-2 text-center text-xs font-semibold text-[var(--foreground)] shadow-sm">
+              {block.exercises[exerciseIndex]?.exerciseName ?? "-"}
+              <div className="mt-2 flex items-center justify-center gap-2">
+                {block.exercises.map((item, idx) => (
+                  <button
+                    key={`${item.exerciseIndex}-dot`}
+                    type="button"
+                    onClick={() => setExerciseIndex(idx)}
+                    className={[
+                      "h-2.5 w-2.5 rounded-full transition",
+                      idx === exerciseIndex ? "bg-[var(--primary-end)]" : "bg-[var(--border)]",
+                    ].join(" ")}
+                    aria-label={`Ir al ejercicio ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setExerciseIndex((prev) => (prev + 1) % block.exercises.length)}
+              disabled={block.exercises.length <= 1}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[var(--primary-end)] disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Ejercicio siguiente"
+            >
+              {">"}
+            </button>
+          </div>
+          <div className="mt-2 text-center text-[11px] font-medium text-[var(--muted)]">
+            Ejercicio {exerciseIndex + 1} de {block.exercises.length}
+          </div>
+          <p className="mt-1 text-center text-[11px] text-[var(--muted)]">Desliza para cambiar de ejercicio</p>
         </div>
       </section>
 
       <Card title={`Progreso de ${exercise.exerciseName}`}>
-        <div className="grid grid-cols-3 gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-1 text-xs font-semibold">
-          {(["week", "month", "all"] as const).map((item) => (
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-1 text-xs font-semibold">
+          {(["week", "month"] as const).map((item) => (
             <button
               key={item}
               type="button"
@@ -237,7 +398,7 @@ export default function ProgressBlockDetailPage() {
                 period === item ? "bg-white text-[var(--foreground)] shadow-sm" : "text-[var(--muted)]",
               ].join(" ")}
             >
-              {item === "week" ? "Semana" : item === "month" ? "Mes" : "Todo"}
+              {item === "week" ? "Semana" : "Mes"}
             </button>
           ))}
         </div>
@@ -257,7 +418,7 @@ export default function ProgressBlockDetailPage() {
           </div>
         </div>
 
-        <MainChart points={filteredPoints} />
+        <MainChart points={filteredPoints} period={period} />
 
         <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-center">
           <p className="text-sm font-semibold text-[var(--foreground)]">
@@ -285,7 +446,7 @@ export default function ProgressBlockDetailPage() {
                     className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-[var(--foreground)]">{point.isoDate}</span>
+                      <span className="font-semibold text-[var(--foreground)]">{formatDateDDMMYYYY(point.isoDate)}</span>
                       <span className="font-semibold text-[var(--foreground)]">{point.weightKg} kg</span>
                     </div>
                     <p className="mt-1 text-xs text-[var(--muted)]">
@@ -300,3 +461,4 @@ export default function ProgressBlockDetailPage() {
     </div>
   );
 }
+

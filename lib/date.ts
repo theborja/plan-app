@@ -101,6 +101,27 @@ export function getCycleDayIndex(
 
 export function formatDayLabel(isoDate: string): string {
   const date = parseISODate(isoDate);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear());
+  return `${day}/${month}/${year}`;
+}
+
+export function formatDateDDMMYYYY(isoDate: string): string {
+  return formatDayLabel(isoDate);
+}
+
+export function formatDateLongSpanish(isoDate: string): string {
+  const date = parseISODate(isoDate);
+  return new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  }).format(date);
+}
+
+export function formatDateShortSpanish(isoDate: string): string {
+  const date = parseISODate(isoDate);
   return new Intl.DateTimeFormat("es-ES", {
     weekday: "short",
     day: "2-digit",

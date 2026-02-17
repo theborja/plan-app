@@ -28,6 +28,8 @@ export type BlockProgress = {
   monthlyTotalKg: number | null;
 };
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 function parseIsoDate(isoDate: string): Date {
   const [y, m, d] = isoDate.split("-").map(Number);
   return new Date(y, (m ?? 1) - 1, d ?? 1);
@@ -35,6 +37,13 @@ function parseIsoDate(isoDate: string): Date {
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function toIsoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function cleanBlockName(label: string): string {
@@ -114,6 +123,72 @@ function average(values: number[]): number | null {
 function sum(values: number[]): number | null {
   if (values.length === 0) return null;
   return round1(values.reduce((acc, value) => acc + value, 0));
+}
+
+function recalcExercise(exercise: ExerciseProgress): ExerciseProgress {
+  const weekly = computeDeltaFromDays(exercise.points, 7);
+  const monthly = computeDeltaFromDays(exercise.points, 30);
+  return {
+    ...exercise,
+    weeklyDeltaPct: weekly.pct,
+    weeklyDeltaKg: weekly.kg,
+    monthlyDeltaPct: monthly.pct,
+    monthlyDeltaKg: monthly.kg,
+  };
+}
+
+export function withMockProgressData(blocks: BlockProgress[], months = 3): BlockProgress[] {
+  const weekCount = Math.max(4, Math.round((months * 30) / 7));
+  const now = new Date();
+
+  return blocks.map((block, blockIdx) => {
+    const exercises = block.exercises.map((exercise, exIdx) => {
+      if (exercise.points.length >= 6) {
+        return recalcExercise(exercise);
+      }
+
+      const seedBase = 35 + blockIdx * 7 + exIdx * 3;
+      const startWeight = exercise.points[0]?.weightKg ?? seedBase;
+      const mockedPoints: ProgressPoint[] = [];
+
+      for (let i = weekCount - 1; i >= 0; i -= 1) {
+        const date = new Date(now.getTime() - i * 7 * MS_PER_DAY);
+        const growth = (weekCount - 1 - i) * (0.4 + ((blockIdx + exIdx) % 3) * 0.15);
+        const wobble = ((i + exIdx) % 2 === 0 ? 0.2 : -0.15);
+        mockedPoints.push({
+          isoDate: toIsoDate(date),
+          weightKg: round1(startWeight + growth + wobble),
+        });
+      }
+
+      return recalcExercise({
+        ...exercise,
+        points: mockedPoints,
+      });
+    });
+
+    const weeklyPcts = exercises
+      .map((exercise) => exercise.weeklyDeltaPct)
+      .filter((value): value is number => value !== null);
+    const monthlyPcts = exercises
+      .map((exercise) => exercise.monthlyDeltaPct)
+      .filter((value): value is number => value !== null);
+    const weeklyKgs = exercises
+      .map((exercise) => exercise.weeklyDeltaKg)
+      .filter((value): value is number => value !== null);
+    const monthlyKgs = exercises
+      .map((exercise) => exercise.monthlyDeltaKg)
+      .filter((value): value is number => value !== null);
+
+    return {
+      ...block,
+      exercises,
+      weeklyAvgPct: average(weeklyPcts),
+      monthlyAvgPct: average(monthlyPcts),
+      weeklyTotalKg: sum(weeklyKgs),
+      monthlyTotalKg: sum(monthlyKgs),
+    };
+  });
 }
 
 export function buildProgressBlocks(
