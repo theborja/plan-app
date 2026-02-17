@@ -6,7 +6,7 @@ import BottomSheet from "@/components/BottomSheet";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
-import { formatDayLabel, getCycleDayIndex, getLocalISODate } from "@/lib/date";
+import { formatDateShortSpanish, getCycleDayIndex, getLocalISODate } from "@/lib/date";
 import { resolveTrainingDay } from "@/lib/planResolver";
 import {
   defaultSelectionsV1,
@@ -173,7 +173,7 @@ export default function TodayPage() {
       <div className="space-y-4">
         <Card title="Hoy">
           <p className="text-sm text-zinc-600">
-            No hay opciones de menu disponibles para {formatDayLabel(isoDate)}.
+            No hay opciones de menu disponibles para {formatDateShortSpanish(isoDate)}.
           </p>
         </Card>
       </div>
@@ -187,7 +187,7 @@ export default function TodayPage() {
       <section className="rounded-[var(--radius-card)] border border-[color:color-mix(in_oklab,var(--primary-end)_50%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] p-4 shadow-[0_10px_24px_rgba(108,93,211,0.16)] animate-card">
         <h2 className="text-base font-semibold text-[var(--foreground)]">Resumen de hoy</h2>
         <div className="mt-3 space-y-3 text-sm text-[var(--muted)]">
-          <p className="font-semibold text-[var(--foreground)]">{formatDayLabel(isoDate)}</p>
+          <p className="font-semibold text-[var(--foreground)]">{formatDateShortSpanish(isoDate)}</p>
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2">
             <button
               type="button"

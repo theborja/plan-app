@@ -6,7 +6,7 @@ import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
 import {
-  formatDayLabel,
+  formatDateShortSpanish,
   getAutoTrainingWeekdays,
   getDayOfWeek,
   getLocalISODate,
@@ -195,7 +195,7 @@ export default function WorkoutPage() {
           <p className="text-sm font-semibold text-[var(--foreground)]">Descanso</p>
           {nextTraining ? (
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Proximo entreno: {formatDayLabel(nextTraining.isoDate)} ({nextTraining.dayOfWeek})
+              Proximo entreno: {formatDateShortSpanish(nextTraining.isoDate)}
             </p>
           ) : (
             <p className="mt-2 text-sm text-[var(--muted)]">No hay dias de entrenamiento definidos.</p>
@@ -229,7 +229,7 @@ export default function WorkoutPage() {
         <h2 className="text-base font-semibold text-[var(--foreground)]">{trainingDay.label}</h2>
         <div className="mt-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-[var(--muted)]">{formatDayLabel(selectedIsoDate)}</p>
+            <p className="text-sm text-[var(--muted)]">{formatDateShortSpanish(selectedIsoDate)}</p>
             <label className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)]">
               <input
                 type="checkbox"

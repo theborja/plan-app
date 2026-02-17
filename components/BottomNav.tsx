@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 const tabs = [
   { href: "/today", label: "Hoy", icon: "home" },
   { href: "/workout", label: "Entreno", icon: "dumbbell" },
+  { href: "/progress", label: "Progreso", icon: "chart" },
   { href: "/import", label: "Importar", icon: "file" },
   { href: "/settings", label: "Ajustes", icon: "settings" },
 ];
@@ -39,6 +40,16 @@ function Icon({ name }: { name: string }) {
       </svg>
     );
   }
+  if (name === "chart") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
+        <path d="M4 20V10" />
+        <path d="M10 20V4" />
+        <path d="M16 20v-7" />
+        <path d="M22 20v-12" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
       <path d="M12 3v3M12 18v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M3 12h3M18 12h3M4.9 19.1L7 17M17 7l2.1-2.1" />
@@ -62,7 +73,10 @@ export default function BottomNav() {
     <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-[var(--border)] bg-[var(--surface)]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur">
       <ul className="grid gap-1" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
         {visibleTabs.map((tab) => {
-          const isActive = pathname === tab.href;
+          const isActive =
+            tab.href === "/progress"
+              ? pathname === "/progress" || pathname.startsWith("/progress/")
+              : pathname === tab.href;
 
           return (
             <li key={tab.href}>

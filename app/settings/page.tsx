@@ -31,6 +31,76 @@ const DAYS: Array<{ key: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun"; 
   { key: "Sat", label: "Sab" },
   { key: "Sun", label: "Dom" },
 ];
+const DAY_LABEL_BY_KEY: Record<(typeof DAYS)[number]["key"], string> = DAYS.reduce(
+  (acc, day) => ({ ...acc, [day.key]: day.label }),
+  {} as Record<(typeof DAYS)[number]["key"], string>,
+);
+
+const DAY_ORDER = DAYS.map((day) => day.key);
+const WEEKDAY_PATTERNS: Record<number, Array<(typeof DAYS)[number]["key"]>> = {
+  1: ["Mon"],
+  2: ["Mon", "Thu"],
+  3: ["Mon", "Wed", "Fri"],
+  4: ["Mon", "Tue", "Thu", "Fri"],
+  5: ["Mon", "Tue", "Thu", "Fri", "Sat"],
+  6: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  7: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+};
+
+function normalizeToken(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseDayFromLabel(label: string): (typeof DAYS)[number]["key"] | null {
+  const token = normalizeToken(label);
+  if (!token) return null;
+  if (token.includes("LUNES") || token.includes("MONDAY")) return "Mon";
+  if (token.includes("MARTES") || token.includes("TUESDAY")) return "Tue";
+  if (token.includes("MIERCOLES") || token.includes("WEDNESDAY")) return "Wed";
+  if (token.includes("JUEVES") || token.includes("THURSDAY")) return "Thu";
+  if (token.includes("VIERNES") || token.includes("FRIDAY")) return "Fri";
+  if (token.includes("SABADO") || token.includes("SATURDAY")) return "Sat";
+  if (token.includes("DOMINGO") || token.includes("SUNDAY")) return "Sun";
+  return null;
+}
+
+function getRoutineDayCount(plan: PlanV1 | null, fallback: number): number {
+  const planCount = plan?.training.days.length ?? 0;
+  const base = planCount > 0 ? planCount : fallback;
+  return Math.max(1, Math.min(7, base));
+}
+
+function inferDaysFromPlan(plan: PlanV1 | null, requiredCount: number): Array<(typeof DAYS)[number]["key"]> {
+  if (!plan || plan.training.days.length === 0) {
+    return [...(WEEKDAY_PATTERNS[requiredCount] ?? DAY_ORDER.slice(0, requiredCount))];
+  }
+
+  const fromLabels = plan.training.days
+    .map((day) => parseDayFromLabel(day.label))
+    .filter((value): value is (typeof DAYS)[number]["key"] => value !== null);
+
+  const uniqueByLabel = [...new Set(fromLabels)].sort(
+    (a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b),
+  );
+
+  if (uniqueByLabel.length >= requiredCount) {
+    return uniqueByLabel.slice(0, requiredCount);
+  }
+
+  const merged = [...uniqueByLabel];
+  for (const day of WEEKDAY_PATTERNS[requiredCount] ?? DAY_ORDER.slice(0, requiredCount)) {
+    if (!merged.includes(day)) {
+      merged.push(day);
+    }
+    if (merged.length === requiredCount) break;
+  }
+  return merged;
+}
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -38,6 +108,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsV1 | null>(null);
   const [plan, setPlan] = useState<PlanV1 | null>(null);
   const [selections, setSelections] = useState<SelectionsV1 | null>(null);
+  const [pendingTrainingDays, setPendingTrainingDays] = useState<Array<(typeof DAYS)[number]["key"]>>([]);
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(
     null,
   );
@@ -48,9 +119,31 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!isReady) return;
-    setSettings(loadSettingsV1());
-    setPlan(loadPlanV1());
+    const loadedSettings = loadSettingsV1();
+    const loadedPlan = loadPlanV1();
+    const requiredCount = getRoutineDayCount(loadedPlan, loadedSettings.trainingDays.length || 4);
+    const defaultDays = inferDaysFromPlan(loadedPlan, requiredCount);
+    const normalizedSaved =
+      loadedSettings.trainingDays.length === requiredCount
+        ? loadedSettings.trainingDays
+        : defaultDays;
+
+    const normalizedSettings: SettingsV1 = {
+      ...loadedSettings,
+      trainingDays: normalizedSaved,
+    };
+
+    if (
+      loadedSettings.trainingDays.length !== normalizedSaved.length ||
+      loadedSettings.trainingDays.some((day, idx) => normalizedSaved[idx] !== day)
+    ) {
+      saveSettingsV1(normalizedSettings);
+    }
+
+    setSettings(normalizedSettings);
+    setPlan(loadedPlan);
     setSelections(loadSelectionsV1());
+    setPendingTrainingDays(normalizedSaved);
   }, [isReady]);
 
   function updateSettings(next: SettingsV1) {
@@ -60,19 +153,37 @@ export default function SettingsPage() {
 
   function toggleTrainingDay(day: (typeof DAYS)[number]["key"]) {
     if (!settings) return;
+    const requiredCount = getRoutineDayCount(plan, settings.trainingDays.length || 4);
+    const exists = pendingTrainingDays.includes(day);
 
-    const exists = settings.trainingDays.includes(day);
+    if (!exists && pendingTrainingDays.length >= requiredCount) {
+      setToast({
+        message: `Tu rutina tiene ${requiredCount} dias. No puedes seleccionar mas.`,
+        tone: "info",
+      });
+      return;
+    }
+
     const nextTrainingDays = exists
-      ? settings.trainingDays.filter((value) => value !== day)
-      : [...settings.trainingDays, day].sort(
+      ? pendingTrainingDays.filter((value) => value !== day)
+      : [...pendingTrainingDays, day].sort(
           (a, b) => DAYS.findIndex((d) => d.key === a) - DAYS.findIndex((d) => d.key === b),
         );
+    setPendingTrainingDays(nextTrainingDays);
 
-    updateSettings({
-      ...settings,
-      trainingDays: nextTrainingDays,
+    if (nextTrainingDays.length === requiredCount) {
+      updateSettings({
+        ...settings,
+        trainingDays: nextTrainingDays,
+      });
+      setToast({ message: "Dias de entrenamiento actualizados.", tone: "success" });
+      return;
+    }
+
+    setToast({
+      message: `Selecciona ${requiredCount} dias para guardar cambios.`,
+      tone: "info",
     });
-    setToast({ message: "Dias de entrenamiento actualizados.", tone: "success" });
   }
 
   async function handleImportSelections(file: File | null) {
@@ -205,14 +316,18 @@ export default function SettingsPage() {
       <Card title="Entrenamiento" subtitle="Elige que dias entrenas y cuales descansas">
         <div className="grid grid-cols-4 gap-2">
           {DAYS.map((day) => {
-            const active = settings.trainingDays.includes(day.key);
+            const requiredCount = getRoutineDayCount(plan, settings.trainingDays.length || 4);
+            const active = pendingTrainingDays.includes(day.key);
+            const atLimit = pendingTrainingDays.length >= requiredCount;
+            const disabled = !active && atLimit;
             return (
               <button
                 key={day.key}
                 type="button"
                 onClick={() => toggleTrainingDay(day.key)}
+                disabled={disabled}
                 className={[
-                  "rounded-xl border px-3 py-2 text-sm font-semibold transition",
+                  "rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
                   active
                     ? "border-emerald-500 bg-emerald-500 text-white"
                     : "border-[var(--border)] bg-[var(--surface-soft)] text-[var(--muted)]",
@@ -224,7 +339,13 @@ export default function SettingsPage() {
           })}
         </div>
         <p className="mt-2 text-xs text-[var(--muted)]">
-          Dias activos: {settings.trainingDays.length === 0 ? "ninguno" : settings.trainingDays.join(", ")}
+          Dias activos:{" "}
+          {pendingTrainingDays.length === 0
+            ? "ninguno"
+            : pendingTrainingDays.map((day) => DAY_LABEL_BY_KEY[day]).join(", ")}
+        </p>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Debes mantener {getRoutineDayCount(plan, settings.trainingDays.length || 4)} dias activos.
         </p>
       </Card>
 

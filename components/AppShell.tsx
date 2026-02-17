@@ -6,14 +6,11 @@ import BottomNav from "@/components/BottomNav";
 import PlanBootstrap from "@/components/PlanBootstrap";
 import ThemeToggle from "@/components/ThemeToggle";
 import { logoutLocal } from "@/lib/auth";
+import { formatDateLongSpanish, getLocalISODate } from "@/lib/date";
 
 function Header() {
   const router = useRouter();
-  const todayLabel = new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  }).format(new Date());
+  const todayLabel = formatDateLongSpanish(getLocalISODate());
 
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--surface)]/90 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
