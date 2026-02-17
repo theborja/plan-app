@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 const tabs = [
   { href: "/today", label: "Hoy", icon: "home" },
   { href: "/workout", label: "Entreno", icon: "dumbbell" },
+  { href: "/progress", label: "Progreso", icon: "chart" },
   { href: "/import", label: "Importar", icon: "file" },
   { href: "/settings", label: "Ajustes", icon: "settings" },
 ];
@@ -36,6 +37,16 @@ function Icon({ name }: { name: string }) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
         <path d="M7 3h7l5 5v13H7z" />
         <path d="M14 3v6h6" />
+      </svg>
+    );
+  }
+  if (name === "chart") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
+        <path d="M4 20V10" />
+        <path d="M10 20V4" />
+        <path d="M16 20v-7" />
+        <path d="M22 20v-12" />
       </svg>
     );
   }
