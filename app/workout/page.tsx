@@ -317,12 +317,22 @@ export default function WorkoutPage() {
                       onChange={(event) => {
                         const nextSeriesWeights = [...seriesWeights];
                         nextSeriesWeights[setIndex] = event.target.value;
+                        const allSeriesCompleted = nextSeriesWeights.every(
+                          (seriesWeight) => seriesWeight.trim().length > 0,
+                        );
+
+                        const nextDoneExerciseIndexes = allSeriesCompleted
+                          ? Array.from(new Set([...doneIndexes, index])).sort((a, b) => a - b)
+                          : doneIndexes.filter((doneIndex) => doneIndex !== index);
 
                         const nextWeights = {
                           ...lastWeightByExerciseIndex,
                           [exerciseKey]: joinSeriesWeights(nextSeriesWeights),
                         };
-                        updateWorkout({ lastWeightByExerciseIndex: nextWeights });
+                        updateWorkout({
+                          lastWeightByExerciseIndex: nextWeights,
+                          doneExerciseIndexes: nextDoneExerciseIndexes,
+                        });
                       }}
                     />
                   ))}

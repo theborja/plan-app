@@ -10,6 +10,7 @@ import Toast from "@/components/Toast";
 import { isAdminUser, logoutLocal } from "@/lib/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { downloadJson, readJsonFile } from "@/lib/jsonFile";
+import { resolveTrainingDay } from "@/lib/planResolver";
 import {
   STORAGE_KEYS,
   loadPlanV1,
@@ -105,6 +106,59 @@ export default function SettingsPage() {
     setToast({ message: "Datos locales eliminados. Recarga la app para reiniciar flujo.", tone: "info" });
   }
 
+  function exportWorkoutHistory() {
+    if (!selections || !plan || !settings) return;
+
+    const detailedHistory = Object.entries(selections.byDate)
+      .filter(([, dayData]) => !!dayData.workout)
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .map(([isoDate, dayData]) => {
+        const workout = dayData.workout;
+        if (!workout) return null;
+
+        const resolvedDay = resolveTrainingDay(plan, isoDate, settings);
+        const trainingLabel = resolvedDay?.label ?? "No asignado";
+
+        const exercises = (resolvedDay?.exercises ?? []).map((exercise, index) => {
+          const rawSeries = workout.lastWeightByExerciseIndex?.[String(index)] ?? "";
+          const parsedWeights = rawSeries.split("||").map((item) => item.trim());
+          const inferredSeries = parsedWeights.length > 0 ? parsedWeights.length : 1;
+          const seriesCount = Math.max(1, exercise.series ?? inferredSeries);
+          const seriesWeights = Array.from({ length: seriesCount }, (_, seriesIndex) => {
+            const value = parsedWeights[seriesIndex] ?? "";
+            return {
+              set: seriesIndex + 1,
+              weight: value,
+            };
+          });
+
+          return {
+            exerciseIndex: index,
+            exerciseName: exercise.name,
+            series: exercise.series ?? null,
+            reps: exercise.reps ?? null,
+            done: workout.doneExerciseIndexes.includes(index),
+            seriesWeights,
+          };
+        });
+
+        return {
+          isoDate,
+          trainingType: trainingLabel,
+          note: workout.note ?? "",
+          updatedAtISO: workout.updatedAtISO ?? null,
+          exercises,
+        };
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+    downloadJson("workout-history.json", {
+      version: 1,
+      exportedAtISO: new Date().toISOString(),
+      entries: detailedHistory,
+    });
+  }
+
   if (isReady && canAccess === false) {
     return (
       <EmptyState
@@ -192,6 +246,15 @@ export default function SettingsPage() {
             onClick={() => selections && downloadJson("selections.json", selections)}
           >
             Exportar selections.json
+          </button>
+
+          <button
+            type="button"
+            className="w-full rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            disabled={!selections}
+            onClick={exportWorkoutHistory}
+          >
+            Exportar workout-history.json
           </button>
 
           <label className="block">
