@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -12,12 +13,12 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    const result = login(email, password);
+    const result = await login(email, password);
     if (!result.ok) {
       setError(result.message);
       setIsLoading(false);
@@ -74,6 +75,13 @@ export default function LoginPage() {
           >
             {isLoading ? "Entrando..." : "Login"}
           </button>
+
+          <p className="text-center text-sm text-[var(--muted)]">
+            No tienes cuenta?{" "}
+            <Link href="/register" className="font-semibold text-blue-600 hover:underline">
+              Registrate
+            </Link>
+          </p>
         </form>
       </section>
     </div>
