@@ -8,7 +8,7 @@ import { formatDateDDMMYYYY, getLocalISODate } from "@/lib/date";
 import { loadMeasuresV1, saveMeasuresV1 } from "@/lib/storage";
 import type { MeasuresV1 } from "@/lib/types";
 
-type MetricKey = "weightKg" | "neckCm" | "waistCm" | "abdomenCm" | "hipCm" | "thighCm";
+type MetricKey = "weightKg" | "neckCm" | "armCm" | "waistCm" | "abdomenCm" | "hipCm" | "thighCm";
 
 type MetricDef = {
   key: MetricKey;
@@ -20,6 +20,7 @@ type MetricDef = {
 const METRICS: MetricDef[] = [
   { key: "weightKg", label: "PESO", shortLabel: "Peso corporal", unit: "kg" },
   { key: "neckCm", label: "CUELLO", shortLabel: "Cuello", unit: "cm" },
+  { key: "armCm", label: "BRAZO", shortLabel: "Brazo", unit: "cm" },
   { key: "waistCm", label: "CINTURA", shortLabel: "Cintura", unit: "cm" },
   { key: "abdomenCm", label: "ABDOMEN", shortLabel: "Abdomen", unit: "cm" },
   { key: "hipCm", label: "CADERA", shortLabel: "Cadera", unit: "cm" },
@@ -34,6 +35,7 @@ type QuickField = {
 
 const QUICK_FIELDS: QuickField[] = [
   { key: "neckCm", label: "Cuello" },
+  { key: "armCm", label: "Brazo" },
   { key: "waistCm", label: "Cintura" },
   { key: "abdomenCm", label: "Abdomen" },
   { key: "hipCm", label: "Cadera" },
@@ -103,6 +105,7 @@ function getDelta(points: Point[], daysBack: number): number | null {
 function baselineForMetric(metric: MetricKey): number {
   if (metric === "weightKg") return 78;
   if (metric === "neckCm") return 38;
+  if (metric === "armCm") return 34;
   if (metric === "waistCm") return 84;
   if (metric === "abdomenCm") return 86;
   if (metric === "hipCm") return 97;
@@ -135,6 +138,7 @@ function getLatestMetricValue(
   const aliases: Record<MetricKey, string[]> = {
     weightKg: ["weightKg", "weight", "peso"],
     neckCm: ["neckCm", "neck", "cuello"],
+    armCm: ["armCm", "arm", "brazo", "biceps"],
     waistCm: ["waistCm", "waist", "cintura"],
     abdomenCm: ["abdomenCm", "abdomen", "abdominal"],
     hipCm: ["hipCm", "hip", "hips", "cadera"],
@@ -271,6 +275,7 @@ export default function MeasuresPage() {
   const [quickWeight, setQuickWeight] = useState("");
   const [quickValues, setQuickValues] = useState<Record<Exclude<MetricKey, "weightKg">, string>>({
     neckCm: "",
+    armCm: "",
     waistCm: "",
     abdomenCm: "",
     hipCm: "",
@@ -350,6 +355,7 @@ export default function MeasuresPage() {
 
     return {
       neckCm: withMockFallback("neckCm"),
+      armCm: withMockFallback("armCm"),
       waistCm: withMockFallback("waistCm"),
       abdomenCm: withMockFallback("abdomenCm"),
       hipCm: withMockFallback("hipCm"),
@@ -373,6 +379,7 @@ export default function MeasuresPage() {
     setQuickWeight(row?.weightKg !== undefined ? String(row.weightKg) : "");
     setQuickValues({
       neckCm: row?.neckCm !== undefined ? String(row.neckCm) : "",
+      armCm: row?.armCm !== undefined ? String(row.armCm) : "",
       waistCm: row?.waistCm !== undefined ? String(row.waistCm) : "",
       abdomenCm:
         row?.abdomenCm !== undefined
@@ -442,10 +449,10 @@ export default function MeasuresPage() {
                   type="date"
                   value={quickWeekIso}
                   onChange={(event) => setQuickWeekIso(getWeekStartIso(event.target.value))}
-                  className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]"
+                  className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]"
                 />
               </label>
-              <label className="block rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+              <label className="block rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
                 <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                   Peso (kg)
                 </span>
@@ -455,11 +462,11 @@ export default function MeasuresPage() {
                   value={quickWeight}
                   onChange={(event) => setQuickWeight(event.target.value)}
                   placeholder={latestWeightValue !== null ? String(latestWeightValue) : ""}
-                  className="mt-1 w-full bg-transparent text-base font-semibold text-[var(--foreground)] outline-none placeholder:font-normal placeholder:text-[var(--muted)] placeholder:opacity-55"
+                  className="mt-1 w-full rounded-xl bg-transparent px-2 py-1 text-base font-semibold text-[var(--foreground)] outline-none placeholder:font-normal placeholder:text-[var(--muted)] placeholder:opacity-55 focus:ring-2 focus:ring-[var(--primary-end)]"
                 />
               </label>
               {QUICK_FIELDS.map((field) => (
-                <label key={field.key} className="block rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+                <label key={field.key} className="block rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
                   <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                     {field.label}
                   </span>
@@ -471,7 +478,7 @@ export default function MeasuresPage() {
                       setQuickValues((prev) => ({ ...prev, [field.key]: event.target.value }))
                     }
                     placeholder={latestQuickValues[field.key] !== null ? String(latestQuickValues[field.key]) : ""}
-                    className="mt-1 w-full bg-transparent text-base font-semibold text-[var(--foreground)] outline-none placeholder:font-normal placeholder:text-[var(--muted)] placeholder:opacity-55"
+                    className="mt-1 w-full rounded-xl bg-transparent px-2 py-1 text-base font-semibold text-[var(--foreground)] outline-none placeholder:font-normal placeholder:text-[var(--muted)] placeholder:opacity-55 focus:ring-2 focus:ring-[var(--primary-end)]"
                   />
                 </label>
               ))}
@@ -490,20 +497,20 @@ export default function MeasuresPage() {
 
       <Card>
         <div className="space-y-3">
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="grid grid-cols-7 gap-1">
             {METRICS.map((metric) => (
               <button
                 key={metric.key}
                 type="button"
                 onClick={() => setActiveMetric(metric.key)}
-              className={[
-                "shrink-0 rounded-xl px-3 py-1.5 text-sm font-semibold transition",
-                activeMetric === metric.key
-                  ? "bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] text-white shadow-sm"
-                  : "bg-[var(--surface-soft)] text-[var(--muted)]",
-              ].join(" ")}
-            >
-              {metric.label}
+                className={[
+                  "rounded-lg px-1 py-1.5 text-[11px] font-semibold leading-none transition",
+                  activeMetric === metric.key
+                    ? "bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] text-white shadow-sm"
+                    : "bg-[var(--surface-soft)] text-[var(--muted)]",
+                ].join(" ")}
+              >
+                {metric.label}
               </button>
             ))}
           </div>

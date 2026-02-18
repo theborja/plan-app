@@ -102,6 +102,7 @@ export type SettingsV1 = {
 export type WeeklyMeasureEntry = {
   weightKg?: number;
   neckCm?: number;
+  armCm?: number;
   waistCm?: number;
   abdomenCm?: number;
   hipCm?: number;
