@@ -5,19 +5,23 @@ import AuthGuard from "@/components/AuthGuard";
 import BottomNav from "@/components/BottomNav";
 import PlanBootstrap from "@/components/PlanBootstrap";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
 import { logoutLocal } from "@/lib/auth";
 import { formatDateLongSpanish, getLocalISODate } from "@/lib/date";
 
 function Header() {
   const router = useRouter();
+  const { user } = useAuth();
   const todayLabel = formatDateLongSpanish(getLocalISODate());
+  const displayIdentity = (user?.name ?? "").trim() || (user?.email ?? "").trim();
+  const title = displayIdentity ? `Hola ${displayIdentity}` : "Hola";
 
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--surface)]/90 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
       <div className="flex items-end justify-between gap-3">
         <div className="flex flex-col items-start gap-1">
           <ThemeToggle />
-          <h1 className="text-xl font-bold text-[var(--foreground)]">Fit Plan</h1>
+          <h1 className="text-xl font-bold text-[var(--foreground)]">{title}</h1>
         </div>
         <div className="flex flex-col items-end gap-1">
           <button
