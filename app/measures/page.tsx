@@ -4,9 +4,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import { useAuth } from "@/hooks/useAuth";
-import { hydrateMeasuresHybrid, saveMeasureWeekHybrid } from "@/lib/adapters/hybrid";
 import { formatDateDDMMYYYY, getLocalISODate } from "@/lib/date";
-import { loadMeasuresV1 } from "@/lib/storage";
+import { loadMeasuresV1, saveMeasuresV1 } from "@/lib/storage";
 import type { MeasuresV1 } from "@/lib/types";
 
 type MetricKey = "weightKg" | "neckCm" | "armCm" | "waistCm" | "abdomenCm" | "hipCm" | "thighCm";
@@ -289,13 +288,6 @@ export default function MeasuresPage() {
     thighCm: "",
   });
 
-  useEffect(() => {
-    void (async () => {
-      const hydrated = await hydrateMeasuresHybrid();
-      setMeasures(hydrated);
-    })();
-  }, []);
-
   const metricDef = METRICS.find((m) => m.key === activeMetric) ?? METRICS[0];
   const activeMetricIndex = Math.max(
     0,
@@ -441,7 +433,7 @@ export default function MeasuresPage() {
       },
     };
     setMeasures(next);
-    void saveMeasureWeekHybrid(quickWeekIso, next.byWeek[quickWeekIso]);
+    saveMeasuresV1(next);
   }
 
   return (

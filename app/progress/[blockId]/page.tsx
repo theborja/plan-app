@@ -6,11 +6,10 @@ import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
-import { getActivePlanHybrid, getProgressBlockHybrid, getProgressBlocksHybrid } from "@/lib/adapters/hybrid";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDateDDMMYYYY } from "@/lib/date";
-import { buildProgressBlocks, type BlockProgress, type ProgressPoint, withMockProgressData } from "@/lib/progress";
-import { loadSelectionsV1, loadSettingsV1 } from "@/lib/storage";
+import { buildProgressBlocks, type ProgressPoint, withMockProgressData } from "@/lib/progress";
+import { loadPlanV1, loadSelectionsV1, loadSettingsV1 } from "@/lib/storage";
 import type { PlanV1, SelectionsV1, SettingsV1 } from "@/lib/types";
 
 type Period = "week" | "month";
@@ -179,32 +178,21 @@ export default function ProgressBlockDetailPage() {
   const [period, setPeriod] = useState<Period>("week");
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [showAllHistory, setShowAllHistory] = useState(false);
-  const [remoteBlocks, setRemoteBlocks] = useState<BlockProgress[] | null>(null);
-  const [remoteBlock, setRemoteBlock] = useState<BlockProgress | null>(null);
 
   useEffect(() => {
-    void getActivePlanHybrid().then((nextPlan) => setPlan(nextPlan));
+    setPlan(loadPlanV1());
     setSettings(loadSettingsV1());
     setSelections(loadSelectionsV1());
     setIsLoading(false);
-    void (async () => {
-      const [block, blocks] = await Promise.all([
-        getProgressBlockHybrid(blockId),
-        getProgressBlocksHybrid(),
-      ]);
-      if (block) setRemoteBlock(block as BlockProgress);
-      if (Array.isArray(blocks) && blocks.length > 0) setRemoteBlocks(blocks as BlockProgress[]);
-    })();
-  }, [blockId]);
+  }, []);
 
-  const fallbackBlocks = useMemo(() => {
+  const blocks = useMemo(() => {
     if (!plan || !settings || !selections) return [];
     const base = buildProgressBlocks(plan, selections, settings);
     return isMockUser ? withMockProgressData(base, 3) : base;
   }, [plan, settings, selections, isMockUser]);
-  const blocks = remoteBlocks ?? fallbackBlocks;
 
-  const block = remoteBlock ?? blocks.find((item) => item.blockId === blockId) ?? null;
+  const block = blocks.find((item) => item.blockId === blockId) ?? null;
 
   useEffect(() => {
     setExerciseIndex(0);

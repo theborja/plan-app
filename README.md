@@ -52,10 +52,6 @@ Variable obligatoria:
 
 `DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB?schema=public`
 
-Feature flag de migracion hibrida (frontend API-first con fallback local):
-
-`NEXT_PUBLIC_DB_MIGRATION_HYBRID=true`
-
 Puedes copiar `.env.example` a `.env` en local y rellenar la URL.
 
 Flujo recomendado:
@@ -86,27 +82,6 @@ Usuarios seed:
 - `mock / mock`
 
 Si `DATABASE_URL` no existe (o no es PostgreSQL), los endpoints de auth no funcionaran.
-
-## Migracion de datos de plan/nutricion/entreno/progreso/measures
-
-Se anadio el esquema Prisma v2 en `prisma/schema.prisma` y migracion SQL en:
-
-`prisma/migrations/20260218120000_db_migration_v2/migration.sql`
-
-Endpoints nuevos:
-
-- `GET /api/plans/active`
-- `GET /api/plans/history`
-- `POST /api/plans/import`
-- `GET /api/nutrition/day?date=YYYY-MM-DD`
-- `POST /api/nutrition/selection`
-- `GET /api/workout/day?date=YYYY-MM-DD`
-- `POST /api/workout/session`
-- `POST /api/workout/set-log`
-- `GET /api/progress/blocks`
-- `GET /api/progress/block/:blockId`
-- `GET /api/measures/week?weekStart=YYYY-MM-DD`
-- `POST /api/measures/week`
 
 ## Excel base por defecto
 

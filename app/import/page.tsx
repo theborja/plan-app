@@ -7,10 +7,10 @@ import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
 import Toast from "@/components/Toast";
-import { importPlanHybrid } from "@/lib/adapters/hybrid";
 import { isAdminUser } from "@/lib/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { parseWorkbookToPlanV1, type ParseWorkbookDebug } from "@/lib/parsers/parseWorkbookPlan";
+import { defaultSelectionsV1, savePlanV1, saveSelectionsV1 } from "@/lib/storage";
 import type { MealType, PlanV1 } from "@/lib/types";
 
 const MEAL_TYPES: MealType[] = [
@@ -74,16 +74,16 @@ export default function ImportPage() {
     }
   }
 
-  async function handleSaveReplace() {
+  function handleSaveReplace() {
     if (!parsedPlan) return;
-    setIsBusy(true);
-    const persistedInDb = await importPlanHybrid(parsedPlan);
-    setToast({
-      message: persistedInDb
-        ? "Plan guardado en BBDD y cache local."
-        : "Plan guardado en local (BBDD no disponible).",
-      tone: "success",
-    });
+
+    savePlanV1(parsedPlan);
+
+    // Politica simple para evitar referencias huerfanas de opciones/ejercicios
+    // cuando cambia completamente la estructura del plan importado.
+    saveSelectionsV1(defaultSelectionsV1());
+
+    setToast({ message: "Plan guardado y reemplazado.", tone: "success" });
     setTimeout(() => {
       if (typeof window !== "undefined" && window.history.length > 1) {
         router.back();
@@ -91,7 +91,6 @@ export default function ImportPage() {
         router.push("/settings");
       }
     }, 250);
-    setIsBusy(false);
   }
 
   if (isReady && canAccess === false) {

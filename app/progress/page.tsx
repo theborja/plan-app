@@ -6,12 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
-import { getActivePlanHybrid, getProgressBlocksHybrid } from "@/lib/adapters/hybrid";
 import { useAuth } from "@/hooks/useAuth";
 import { getLocalISODate } from "@/lib/date";
 import { resolveTrainingDay } from "@/lib/planResolver";
-import { buildProgressBlocks, type BlockProgress, type ProgressPoint, withMockProgressData } from "@/lib/progress";
+import { buildProgressBlocks, type ProgressPoint, withMockProgressData } from "@/lib/progress";
 import {
+  loadPlanV1,
   loadSelectionsV1,
   loadSettingsV1,
 } from "@/lib/storage";
@@ -133,28 +133,20 @@ export default function ProgressPage() {
   const [selections, setSelections] = useState<SelectionsV1 | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [remoteBlocks, setRemoteBlocks] = useState<BlockProgress[] | null>(null);
   const isMockUser = (user?.email ?? "").trim().toLowerCase() === "mock";
 
   useEffect(() => {
-    void getActivePlanHybrid().then((nextPlan) => setPlan(nextPlan));
+    setPlan(loadPlanV1());
     setSettings(loadSettingsV1());
     setSelections(loadSelectionsV1());
     setIsLoading(false);
-    void (async () => {
-      const blocks = await getProgressBlocksHybrid();
-      if (Array.isArray(blocks) && blocks.length > 0) {
-        setRemoteBlocks(blocks as BlockProgress[]);
-      }
-    })();
   }, []);
 
-  const fallbackBlocks = useMemo(() => {
+  const blocks = useMemo(() => {
     if (!plan || !settings || !selections) return [];
     const base = buildProgressBlocks(plan, selections, settings);
     return isMockUser ? withMockProgressData(base, 3) : base;
   }, [plan, settings, selections, isMockUser]);
-  const blocks = remoteBlocks ?? fallbackBlocks;
 
   const preferredBlockId = useMemo(() => {
     if (!plan || !settings || blocks.length === 0) return null;
