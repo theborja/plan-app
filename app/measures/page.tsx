@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
+import { useAuth } from "@/hooks/useAuth";
 import { formatDateDDMMYYYY, getLocalISODate } from "@/lib/date";
 import { loadMeasuresV1, saveMeasuresV1 } from "@/lib/storage";
 import type { MeasuresV1 } from "@/lib/types";
@@ -263,9 +263,8 @@ function MiniLineChart({ points, unit }: { points: Point[]; unit: string }) {
 }
 
 export default function MeasuresPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const mockEnabled = searchParams.get("mock") === "1";
+  const { user } = useAuth();
+  const mockEnabled = (user?.email ?? "").trim().toLowerCase() === "mock";
   const [measures, setMeasures] = useState<MeasuresV1>(() => loadMeasuresV1());
   const [activeMetric, setActiveMetric] = useState<MetricKey>("neckCm");
   const [quickWeekIso, setQuickWeekIso] = useState(getWeekStartIso(getLocalISODate()));
@@ -387,17 +386,6 @@ export default function MeasuresPage() {
     });
   }, [measures, quickWeekIso]);
 
-  function toggleMock() {
-    const params = new URLSearchParams(searchParams.toString());
-    if (mockEnabled) {
-      params.delete("mock");
-    } else {
-      params.set("mock", "1");
-    }
-    const query = params.toString();
-    router.push(query ? `/measures?${query}` : "/measures");
-  }
-
   function saveQuickMeasures() {
     const patch: Partial<Record<MetricKey, number>> = {};
     const parsedWeight = Number(quickWeight.replace(",", "."));
@@ -433,34 +421,6 @@ export default function MeasuresPage() {
     <div className="space-y-4">
       <Card>
         <div className="space-y-4">
-          <div className="flex justify-end">
-            {mockEnabled ? (
-              <div className="flex items-center gap-1.5">
-                <span className="rounded-full bg-[var(--surface-soft)] px-2 py-1 text-[10px] font-semibold text-[var(--muted)]">
-                  Mock 3 meses
-                </span>
-                <button
-                  type="button"
-                  className="rounded-full bg-[var(--surface-soft)] px-2 py-1 text-[10px] font-semibold text-[var(--primary-end)]"
-                  onClick={toggleMock}
-                >
-                  Sin mock
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-soft)] text-[var(--primary-end)]"
-                aria-label="Activar mock"
-                onClick={toggleMock}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-                  <path d="M20 11a8 8 0 1 1-2.3-5.7" />
-                  <path d="M20 4v7h-7" />
-                </svg>
-              </button>
-            )}
-          </div>
           <div>
             <p className="text-5xl font-bold text-[var(--foreground)]">
               {currentWeight !== null ? `${currentWeight} kg` : "--"}
