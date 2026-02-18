@@ -7,6 +7,8 @@ import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
 import { useAuth } from "@/hooks/useAuth";
+import { getLocalISODate } from "@/lib/date";
+import { resolveTrainingDay } from "@/lib/planResolver";
 import { buildProgressBlocks, type ProgressPoint, withMockProgressData } from "@/lib/progress";
 import {
   loadPlanV1,
@@ -146,6 +148,22 @@ export default function ProgressPage() {
     return isMockUser ? withMockProgressData(base, 3) : base;
   }, [plan, settings, selections, isMockUser]);
 
+  const preferredBlockId = useMemo(() => {
+    if (!plan || !settings || blocks.length === 0) return null;
+    const todayIso = getLocalISODate();
+    const todayTrainingDay = resolveTrainingDay(plan, todayIso, settings);
+    if (!todayTrainingDay) {
+      return blocks[0]?.blockId ?? null;
+    }
+
+    const match = blocks.find((block) => {
+      const dayIndexMatch = block.blockId.match(/^block-(\d+)-/);
+      return dayIndexMatch ? Number(dayIndexMatch[1]) === todayTrainingDay.dayIndex : false;
+    });
+
+    return match?.blockId ?? blocks[0]?.blockId ?? null;
+  }, [blocks, plan, settings]);
+
   useEffect(() => {
     if (blocks.length === 0) {
       setSelectedBlockId(null);
@@ -154,9 +172,9 @@ export default function ProgressPage() {
 
     const exists = blocks.some((block) => block.blockId === selectedBlockId);
     if (!selectedBlockId || !exists) {
-      setSelectedBlockId(blocks[0].blockId);
+      setSelectedBlockId(preferredBlockId ?? blocks[0].blockId);
     }
-  }, [blocks, selectedBlockId]);
+  }, [blocks, preferredBlockId, selectedBlockId]);
 
   const selectedBlock = blocks.find((block) => block.blockId === selectedBlockId) ?? null;
 
