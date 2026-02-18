@@ -10,6 +10,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -54,16 +55,38 @@ export default function LoginPage() {
 
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-[var(--muted)]">Password</span>
-            <input
-              type="password"
-              className={[
-                "w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:ring-2 focus:ring-blue-500",
-                error ? "ring-1 ring-rose-400" : "",
-              ].join(" ")}
-              placeholder=""
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                className={[
+                  "w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 pr-11 text-sm text-[var(--foreground)] outline-none focus:ring-2 focus:ring-blue-500",
+                  error ? "ring-1 ring-rose-400" : "",
+                ].join(" ")}
+                placeholder=""
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? "Ocultar password" : "Mostrar password"}
+                className="absolute top-1/2 right-3 -translate-y-1/2 text-[var(--muted)]"
+                onClick={() => setShowPassword((prev) => !prev)}
+              >
+                {showPassword ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+                    <path d="M3 3l18 18" />
+                    <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
+                    <path d="M9.9 4.2A10.7 10.7 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.2 5.2" />
+                    <path d="M6.6 6.6A18.7 18.7 0 0 0 2 12s4 8 10 8a9.8 9.8 0 0 0 4.2-.9" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+                    <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </label>
 
           {error ? <p className="text-sm text-rose-600">{error}</p> : null}

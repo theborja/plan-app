@@ -266,7 +266,7 @@ export default function MeasuresPage() {
   const { user } = useAuth();
   const mockEnabled = (user?.email ?? "").trim().toLowerCase() === "mock";
   const [measures, setMeasures] = useState<MeasuresV1>(() => loadMeasuresV1());
-  const [activeMetric, setActiveMetric] = useState<MetricKey>("neckCm");
+  const [activeMetric, setActiveMetric] = useState<MetricKey>("weightKg");
   const [quickWeekIso, setQuickWeekIso] = useState(getWeekStartIso(getLocalISODate()));
   const [quickWeight, setQuickWeight] = useState("");
   const [quickValues, setQuickValues] = useState<Record<Exclude<MetricKey, "weightKg">, string>>({
@@ -455,7 +455,7 @@ export default function MeasuresPage() {
                   value={quickWeight}
                   onChange={(event) => setQuickWeight(event.target.value)}
                   placeholder={latestWeightValue !== null ? String(latestWeightValue) : ""}
-                  className="mt-1 w-full bg-transparent text-base font-semibold text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] placeholder:opacity-100"
+                  className="mt-1 w-full bg-transparent text-base font-semibold text-[var(--foreground)] outline-none placeholder:font-normal placeholder:text-[var(--muted)] placeholder:opacity-55"
                 />
               </label>
               {QUICK_FIELDS.map((field) => (
@@ -471,7 +471,7 @@ export default function MeasuresPage() {
                       setQuickValues((prev) => ({ ...prev, [field.key]: event.target.value }))
                     }
                     placeholder={latestQuickValues[field.key] !== null ? String(latestQuickValues[field.key]) : ""}
-                    className="mt-1 w-full bg-transparent text-base font-semibold text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] placeholder:opacity-100"
+                    className="mt-1 w-full bg-transparent text-base font-semibold text-[var(--foreground)] outline-none placeholder:font-normal placeholder:text-[var(--muted)] placeholder:opacity-55"
                   />
                 </label>
               ))}

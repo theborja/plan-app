@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
+import { useAuth } from "@/hooks/useAuth";
 import {
   formatDateShortSpanish,
   getAutoTrainingWeekdays,
@@ -14,6 +15,7 @@ import {
   isTrainingDay,
 } from "@/lib/date";
 import { resolveTrainingDay } from "@/lib/planResolver";
+import { buildProgressBlocks, withMockProgressData } from "@/lib/progress";
 import { loadPlanV1, loadSelectionsV1, loadSettingsV1, saveSelectionsV1 } from "@/lib/storage";
 import type { PlanV1, SelectionsV1, SettingsV1 } from "@/lib/types";
 
@@ -64,6 +66,8 @@ function addDays(isoDate: string, amount: number): string {
 }
 
 export default function WorkoutPage() {
+  const { user } = useAuth();
+  const isMockUser = (user?.email ?? "").trim().toLowerCase() === "mock";
   const [plan, setPlan] = useState<PlanV1 | null>(null);
   const [settings, setSettings] = useState<SettingsV1 | null>(null);
   const [selections, setSelections] = useState<SelectionsV1 | null>(null);
@@ -89,6 +93,19 @@ export default function WorkoutPage() {
     if (!plan || !settings || !trainingToday) return null;
     return resolveTrainingDay(plan, selectedIsoDate, settings);
   }, [plan, settings, trainingToday, selectedIsoDate]);
+
+  const mockBlocks = useMemo(() => {
+    if (!isMockUser || !plan || !settings || !selections) return [];
+    return withMockProgressData(buildProgressBlocks(plan, selections, settings), 3);
+  }, [isMockUser, plan, selections, settings]);
+
+  const trainingDayIndexInPlan = useMemo(() => {
+    if (!plan || !trainingDay) return -1;
+    return plan.training.days.findIndex((day) => day.dayIndex === trainingDay.dayIndex);
+  }, [plan, trainingDay]);
+
+  const mockBlockForDay =
+    trainingDayIndexInPlan >= 0 ? (mockBlocks[trainingDayIndexInPlan] ?? null) : null;
 
   const doneIndexes = selections?.byDate?.[selectedIsoDate]?.workout?.doneExerciseIndexes ?? [];
   const lastWeightByExerciseIndex =
@@ -258,8 +275,13 @@ export default function WorkoutPage() {
         const isDone = doneIndexes.includes(index);
         const exerciseKey = String(index);
         const storedWeight = lastWeightByExerciseIndex[exerciseKey];
-        const fallbackMostRecent = getMostRecentWeightEntry(exercise.notes);
         const seriesCount = Math.max(1, exercise.series ?? 1);
+        const mockWeight = mockBlockForDay?.exercises[index]?.points.at(-1)?.weightKg ?? null;
+        const mockSeriesFallback =
+          mockWeight !== null ? Array.from({ length: seriesCount }, () => String(mockWeight)).join("||") : "";
+        const fallbackMostRecent = isMockUser
+          ? mockSeriesFallback || getMostRecentWeightEntry(exercise.notes)
+          : getMostRecentWeightEntry(exercise.notes);
         const seriesWeights = splitStoredSeriesWeights(storedWeight ?? fallbackMostRecent, seriesCount);
         return (
           <Card key={exercise.id || `${trainingDay.dayIndex}-${index}`}>
