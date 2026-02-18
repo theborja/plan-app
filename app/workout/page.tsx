@@ -27,16 +27,6 @@ function formatRest(restSeconds?: number | null): string {
   return sec === 0 ? `${min}min` : `${min}min ${sec}s`;
 }
 
-function getMostRecentWeightEntry(raw: string | undefined | null): string {
-  if (!raw) return "";
-  const entries = raw
-    .split("|")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-  if (entries.length === 0) return "";
-  return entries[entries.length - 1];
-}
-
 function splitStoredSeriesWeights(value: string | undefined, seriesCount: number): string[] {
   const count = Math.max(1, seriesCount);
   if (!value || !value.trim()) {
@@ -279,9 +269,7 @@ export default function WorkoutPage() {
         const mockWeight = mockBlockForDay?.exercises[index]?.points.at(-1)?.weightKg ?? null;
         const mockSeriesFallback =
           mockWeight !== null ? Array.from({ length: seriesCount }, () => String(mockWeight)).join("||") : "";
-        const fallbackMostRecent = isMockUser
-          ? mockSeriesFallback || getMostRecentWeightEntry(exercise.notes)
-          : getMostRecentWeightEntry(exercise.notes);
+        const fallbackMostRecent = isMockUser ? mockSeriesFallback : "";
         const seriesWeights = splitStoredSeriesWeights(storedWeight ?? fallbackMostRecent, seriesCount);
         return (
           <Card key={exercise.id || `${trainingDay.dayIndex}-${index}`}>

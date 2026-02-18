@@ -304,13 +304,7 @@ export default function SettingsPage() {
             {"<"}
           </button>
           <h2 className="text-base font-semibold text-[var(--foreground)]">Panel admin</h2>
-          <Link
-            href="/today"
-            aria-label="Cerrar panel"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)]"
-          >
-            X
-          </Link>
+          <span className="h-8 w-8" />
         </div>
       </section>
 

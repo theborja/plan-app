@@ -41,8 +41,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const totalUsers = await prisma.user.count();
-  const role = totalUsers === 0 ? "ADMIN" : "USER";
+  const role = "USER";
   const passwordHash = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({

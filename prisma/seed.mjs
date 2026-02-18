@@ -29,6 +29,7 @@ async function upsertUser(email, password, role) {
 
 async function main() {
   await upsertUser("admin", "admin", "ADMIN");
+  await upsertUser("borja", "borja", "ADMIN");
   await upsertUser("user", "user", "USER");
   await upsertUser("mock", "mock", "USER");
 }
