@@ -3,16 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
-import { isAdminUser } from "@/lib/auth";
-import { useAuth } from "@/hooks/useAuth";
 
 const tabs = [
   { href: "/today", label: "Hoy", icon: "home" },
   { href: "/workout", label: "Entreno", icon: "dumbbell" },
   { href: "/progress", label: "Progreso", icon: "chart" },
   { href: "/measures", label: "Medidas", icon: "measure" },
-  { href: "/import", label: "Importar", icon: "file" },
-  { href: "/settings", label: "Ajustes", icon: "settings" },
 ];
 
 function Icon({ name }: { name: string }) {
@@ -30,14 +26,6 @@ function Icon({ name }: { name: string }) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
         <path d="M3 9v6M6 7v10M18 7v10M21 9v6" />
         <path d="M6 12h12" />
-      </svg>
-    );
-  }
-  if (name === "file") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
-        <path d="M7 3h7l5 5v13H7z" />
-        <path d="M14 3v6h6" />
       </svg>
     );
   }
@@ -69,14 +57,7 @@ function Icon({ name }: { name: string }) {
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
-
-  const visibleTabs = useMemo(() => {
-    if (user && isAdminUser(user)) {
-      return tabs;
-    }
-    return tabs.filter((tab) => tab.href !== "/import" && tab.href !== "/settings");
-  }, [user]);
+  const visibleTabs = useMemo(() => tabs, []);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-[var(--border)] bg-[var(--surface)]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur">
