@@ -177,6 +177,7 @@ export default function ProgressBlockDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState<Period>("week");
   const [exerciseIndex, setExerciseIndex] = useState(0);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   useEffect(() => {
     setPlan(loadPlanV1());
@@ -209,6 +210,9 @@ export default function ProgressBlockDetailPage() {
     () => (exercise ? filterPointsByPeriod(exercise.points, period) : []),
     [exercise, period],
   );
+  const reversedPoints = useMemo(() => filteredPoints.slice().reverse(), [filteredPoints]);
+  const visibleHistoryPoints = showAllHistory ? reversedPoints : reversedPoints.slice(0, 4);
+  const hasMoreHistory = reversedPoints.length > 4;
   const monthlyImprovementKg = useMemo(() => {
     if (!exercise || exercise.points.length < 2) return null;
     const latest = exercise.points[exercise.points.length - 1];
@@ -320,12 +324,7 @@ export default function ProgressBlockDetailPage() {
         <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-2">
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1 rounded-lg bg-[var(--progress-chip-bg)] px-3 py-2 text-center text-xs font-semibold text-[var(--progress-chip-fg)] shadow-sm">
-              <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0 flex-1 truncate text-left">{block.exercises[exerciseIndex]?.exerciseName ?? "-"}</span>
-                <span className="shrink-0 text-[11px] font-medium text-[var(--progress-chip-muted-fg)]">
-                  Ejercicio {exerciseIndex + 1} de {block.exercises.length}
-                </span>
-              </div>
+              <div className="mx-auto max-w-[90%] truncate text-center">{block.exercises[exerciseIndex]?.exerciseName ?? "-"}</div>
               <div className="mt-2 flex items-center justify-center gap-2">
                 {block.exercises.map((item, idx) => (
                   <button
@@ -404,11 +403,8 @@ export default function ProgressBlockDetailPage() {
           {filteredPoints.length === 0 ? (
             <li className="text-[var(--muted)]">Sin registros para este periodo.</li>
           ) : (
-            filteredPoints
-              .slice()
-              .reverse()
-              .map((point, idx, arr) => {
-                const prev = arr[idx + 1];
+            visibleHistoryPoints.map((point, idx) => {
+                const prev = reversedPoints[idx + 1];
                 const delta = prev ? point.weightKg - prev.weightKg : null;
                 return (
                   <li
@@ -427,6 +423,15 @@ export default function ProgressBlockDetailPage() {
               })
           )}
         </ul>
+        {hasMoreHistory ? (
+          <button
+            type="button"
+            onClick={() => setShowAllHistory((prev) => !prev)}
+            className="mt-3 text-sm font-semibold text-[var(--primary-end)]"
+          >
+            {showAllHistory ? "Ver menos" : `Ver ${reversedPoints.length - 4} mas`}
+          </button>
+        ) : null}
       </Card>
     </div>
   );
