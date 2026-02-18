@@ -141,11 +141,6 @@ function collectNotes(row: unknown[]): string | null {
     if (text) noteParts.push(text);
   }
 
-  for (let col = 8; col < row.length; col += 1) {
-    const text = asCellText(row[col]);
-    if (text) noteParts.push(text);
-  }
-
   if (noteParts.length === 0) return null;
   return noteParts.join(" | ");
 }

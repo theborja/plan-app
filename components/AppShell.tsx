@@ -10,12 +10,17 @@ import { useAuth } from "@/hooks/useAuth";
 import { isAdminUser, logoutLocal } from "@/lib/auth";
 import { formatDateLongSpanish, getLocalISODate } from "@/lib/date";
 
+function capitalizeFirst(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function Header() {
   const router = useRouter();
   const { user } = useAuth();
   const todayLabel = formatDateLongSpanish(getLocalISODate());
   const displayIdentity = (user?.name ?? "").trim() || (user?.email ?? "").trim();
-  const title = displayIdentity ? `Hola, ${displayIdentity}` : "Hola";
+  const title = displayIdentity ? `Hola, ${capitalizeFirst(displayIdentity)}` : "Hola";
   const showAdminSettings = isAdminUser(user);
 
   return (
