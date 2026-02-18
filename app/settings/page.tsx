@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import BottomSheet from "@/components/BottomSheet";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
@@ -292,6 +293,38 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4">
+      <section className="rounded-[18px] border border-[color:color-mix(in_oklab,var(--primary-end)_48%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_80%,var(--primary-end)_20%)] p-4 shadow-[0_14px_28px_rgba(108,93,211,0.16)] animate-card">
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            aria-label="Volver"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)]"
+            onClick={() => router.back()}
+          >
+            {"<"}
+          </button>
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Panel admin</h2>
+          <Link
+            href="/today"
+            aria-label="Cerrar panel"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)]"
+          >
+            X
+          </Link>
+        </div>
+      </section>
+
+      <Card title="Herramientas admin" subtitle="Gestion de plan y datos">
+        <div className="space-y-2">
+          <Link
+            href="/import"
+            className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white"
+          >
+            Importar/Reemplazar plan Excel
+          </Link>
+        </div>
+      </Card>
+
       <Card title="Ciclo nutricional" subtitle="Define desde que fecha empieza el ciclo de 2 semanas">
         <div className="space-y-2">
           <label className="text-sm font-medium text-zinc-900" htmlFor="start-date">
