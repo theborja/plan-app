@@ -7,6 +7,11 @@ import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import {
+  getActivePlanHybrid,
+  hydrateWorkoutHybrid,
+  saveWorkoutHybrid,
+} from "@/lib/adapters/hybrid";
+import {
   formatDateShortSpanish,
   getAutoTrainingWeekdays,
   getDayOfWeek,
@@ -16,7 +21,7 @@ import {
 } from "@/lib/date";
 import { resolveTrainingDay } from "@/lib/planResolver";
 import { buildProgressBlocks, withMockProgressData } from "@/lib/progress";
-import { loadPlanV1, loadSelectionsV1, loadSettingsV1, saveSelectionsV1 } from "@/lib/storage";
+import { loadSelectionsV1, loadSettingsV1, saveSelectionsV1 } from "@/lib/storage";
 import type { PlanV1, SelectionsV1, SettingsV1 } from "@/lib/types";
 
 function formatRest(restSeconds?: number | null): string {
@@ -55,6 +60,15 @@ function addDays(isoDate: string, amount: number): string {
   return `${y}-${m}-${d}`;
 }
 
+function parseWeightSeries(value: string): Array<number | null> {
+  if (!value || !value.trim()) return [];
+  const parts = value.includes("||") ? value.split("||") : [value];
+  return parts.map((part) => {
+    const parsed = Number(part.trim().replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : null;
+  });
+}
+
 export default function WorkoutPage() {
   const { user } = useAuth();
   const isMockUser = (user?.email ?? "").trim().toLowerCase() === "mock";
@@ -73,11 +87,22 @@ export default function WorkoutPage() {
   const nextTraining = trainingWeekdays.length > 0 ? getNextTrainingDay(selectedIsoDate, trainingWeekdays) : null;
 
   useEffect(() => {
-    setPlan(loadPlanV1());
     setSettings(loadSettingsV1());
     setSelections(loadSelectionsV1());
     setIsLoading(false);
+    void (async () => {
+      const nextPlan = await getActivePlanHybrid();
+      setPlan(nextPlan);
+    })();
   }, []);
+
+  useEffect(() => {
+    if (!selectedIsoDate) return;
+    void (async () => {
+      const hydrated = await hydrateWorkoutHybrid(selectedIsoDate);
+      setSelections(hydrated);
+    })();
+  }, [selectedIsoDate]);
 
   const trainingDay = useMemo(() => {
     if (!plan || !settings || !trainingToday) return null;
@@ -129,8 +154,28 @@ export default function WorkoutPage() {
       },
     };
 
+    const nextWorkout = next.byDate[selectedIsoDate].workout ?? {
+      doneExerciseIndexes: [],
+      note: "",
+      lastWeightByExerciseIndex: {},
+    };
+
     setSelections(next);
     saveSelectionsV1(next);
+
+    if (trainingDay) {
+      const exercisesById = trainingDay.exercises.map((exercise, index) => ({
+        exerciseId: exercise.id,
+        weights: parseWeightSeries(nextWorkout.lastWeightByExerciseIndex?.[String(index)] ?? ""),
+      }));
+
+      void saveWorkoutHybrid({
+        dateISO: selectedIsoDate,
+        note: nextWorkout.note,
+        completed: trainingDay.exercises.length > 0 && nextWorkout.doneExerciseIndexes.length >= trainingDay.exercises.length,
+        exercisesById,
+      });
+    }
   }
 
   if (!plan) {
