@@ -25,7 +25,7 @@ function Header() {
             aria-label="Cerrar sesion"
             className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-soft)] text-[var(--muted)]"
             onClick={() => {
-              logoutLocal();
+              void logoutLocal();
               router.replace("/login");
             }}
           >
@@ -46,11 +46,11 @@ function Header() {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isLogin = pathname === "/login";
+  const isAuthPage = pathname === "/login" || pathname === "/register";
 
   return (
     <AuthGuard>
-      {isLogin ? (
+      {isAuthPage ? (
         <main className="min-h-dvh bg-[var(--background)] px-4 py-[max(1rem,env(safe-area-inset-top))]">{children}</main>
       ) : (
         <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-transparent">

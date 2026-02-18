@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import Skeleton from "@/components/Skeleton";
 import { useAuth } from "@/hooks/useAuth";
 
-const PUBLIC_PATHS = new Set(["/login"]);
+const PUBLIC_PATHS = new Set(["/login", "/register"]);
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -21,7 +21,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (isAuthenticated && pathname === "/login") {
+    if (isAuthenticated && (pathname === "/login" || pathname === "/register")) {
       router.replace("/today");
     }
   }, [isAuthenticated, isPublic, isReady, pathname, router]);
@@ -38,7 +38,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  if (isAuthenticated && pathname === "/login") {
+  if (isAuthenticated && (pathname === "/login" || pathname === "/register")) {
     return null;
   }
 
