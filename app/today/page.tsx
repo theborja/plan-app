@@ -6,11 +6,15 @@ import BottomSheet from "@/components/BottomSheet";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
+import {
+  getActivePlanHybrid,
+  hydrateTodaySelectionHybrid,
+  saveTodaySelectionHybrid,
+} from "@/lib/adapters/hybrid";
 import { formatDateShortSpanish, getCycleDayIndex, getLocalISODate } from "@/lib/date";
 import { resolveTrainingDay } from "@/lib/planResolver";
 import {
   defaultSelectionsV1,
-  loadPlanV1,
   loadSelectionsV1,
   loadSettingsV1,
   saveSelectionsV1,
@@ -46,19 +50,18 @@ export default function TodayPage() {
   const isoDate = getLocalISODate();
 
   useEffect(() => {
-    setPlan(loadPlanV1());
     setSettings(loadSettingsV1());
     setSelections(loadSelectionsV1());
     setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (plan) return;
-    const timer = window.setTimeout(() => {
-      setPlan(loadPlanV1());
-    }, 1200);
-    return () => window.clearTimeout(timer);
-  }, [plan]);
+    void (async () => {
+      const [nextPlan, nextSelections] = await Promise.all([
+        getActivePlanHybrid(),
+        hydrateTodaySelectionHybrid(isoDate),
+      ]);
+      setPlan(nextPlan);
+      setSelections(nextSelections);
+    })();
+  }, [isoDate]);
 
   const dailyMenuOptions = useMemo(() => {
     if (!plan || !settings) return null;
@@ -81,7 +84,7 @@ export default function TodayPage() {
       }).filter((meal) => meal.lines.length > 0);
 
       return {
-        optionId: `${day.weekIndex}-${day.dayOfWeek}`,
+        optionId: String(index + 1),
         optionLabel: `Opcion ${index + 1}`,
         weekIndex: day.weekIndex,
         meals,
@@ -124,6 +127,13 @@ export default function TodayPage() {
 
       saveSelectionsV1(next);
       return next;
+    });
+
+    void saveTodaySelectionHybrid({
+      dateISO: isoDate,
+      selectedDayOptionId: patch.selectedDayOptionId,
+      done: patch.done,
+      note: patch.note,
     });
   }
 
