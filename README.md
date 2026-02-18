@@ -30,6 +30,45 @@ npm run start
 npm run lint
 ```
 
+## Base de datos (PostgreSQL)
+
+La app usa Prisma con PostgreSQL para login/registro y sesiones.
+
+Variable obligatoria:
+
+`DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB?schema=public`
+
+Puedes copiar `.env.example` a `.env` en local y rellenar la URL.
+
+Flujo recomendado:
+
+1. Configura `DATABASE_URL` en local y en Vercel (Preview + Production).
+2. Genera cliente Prisma:
+
+```bash
+npm run db:generate
+```
+
+3. Aplica esquema en la base de datos:
+
+```bash
+npm run db:push
+```
+
+4. Carga usuarios base:
+
+```bash
+npm run db:seed
+```
+
+Usuarios seed:
+
+- `admin / admin`
+- `user / user`
+- `mock / mock`
+
+Si `DATABASE_URL` no existe (o no es PostgreSQL), los endpoints de auth no funcionaran.
+
 ## Excel base por defecto
 
 Coloca el archivo Excel base en:

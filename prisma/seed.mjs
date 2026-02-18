@@ -1,17 +1,17 @@
 import bcrypt from "bcryptjs";
 import prismaPkg from "@prisma/client";
-import path from "node:path";
 
 const { PrismaClient } = prismaPkg;
 
-const sqlitePath = path.join(process.cwd(), "prisma", "dev.db").replace(/\\/g, "/");
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: `file:${sqlitePath}`,
-    },
-  },
-});
+const databaseUrl = process.env.DATABASE_URL ?? "";
+const normalizedUrl = databaseUrl.trim();
+
+if (!normalizedUrl || (!normalizedUrl.startsWith("postgres://") && !normalizedUrl.startsWith("postgresql://"))) {
+  console.error("DATABASE_URL debe apuntar a PostgreSQL para ejecutar el seed.");
+  process.exit(1);
+}
+
+const prisma = new PrismaClient();
 
 async function upsertUser(email, password, role) {
   const passwordHash = await bcrypt.hash(password, 10);
@@ -30,6 +30,7 @@ async function upsertUser(email, password, role) {
 async function main() {
   await upsertUser("admin", "admin", "ADMIN");
   await upsertUser("user", "user", "USER");
+  await upsertUser("mock", "mock", "USER");
 }
 
 main()
