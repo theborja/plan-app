@@ -278,6 +278,7 @@ export default function MeasuresPage() {
   const [activeMetric, setActiveMetric] = useState<MetricKey>("weightKg");
   const [quickWeekIso, setQuickWeekIso] = useState(getWeekStartIso(getLocalISODate()));
   const [quickWeight, setQuickWeight] = useState("");
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const [quickValues, setQuickValues] = useState<Record<Exclude<MetricKey, "weightKg">, string>>({
     neckCm: "",
     armCm: "",
@@ -341,6 +342,8 @@ export default function MeasuresPage() {
         };
       });
   }, [points]);
+  const visibleHistoryRows = showAllHistory ? historyRows : historyRows.slice(0, 4);
+  const hasMoreHistory = historyRows.length > 4;
 
   const latestQuickValues = useMemo(() => {
     const metricPoints = (metric: MetricKey): Point[] => {
@@ -559,8 +562,9 @@ export default function MeasuresPage() {
         {historyRows.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">Sin medidas registradas todavia.</p>
         ) : (
-          <ul className="space-y-2">
-            {historyRows.slice(0, 8).map((row) => (
+          <>
+            <ul className="space-y-2">
+              {visibleHistoryRows.map((row) => (
               <li key={row.weekIso} className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-[var(--foreground)]">
@@ -574,8 +578,18 @@ export default function MeasuresPage() {
                   {row.value} {metricDef.unit}
                 </p>
               </li>
-            ))}
-          </ul>
+              ))}
+            </ul>
+            {hasMoreHistory ? (
+              <button
+                type="button"
+                onClick={() => setShowAllHistory((prev) => !prev)}
+                className="mt-3 text-sm font-semibold text-[var(--primary-end)]"
+              >
+                {showAllHistory ? "Ver menos" : `Ver ${historyRows.length - 4} mas`}
+              </button>
+            ) : null}
+          </>
         )}
       </Card>
 
