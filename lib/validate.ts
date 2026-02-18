@@ -97,7 +97,7 @@ function isDailySelections(value: unknown): value is DailySelections {
 
 function isWeeklyMeasureEntry(value: unknown): value is WeeklyMeasureEntry {
   if (!isRecord(value)) return false;
-  const numericKeys = ["weightKg", "neckCm", "waistCm", "abdomenCm", "hipCm", "thighCm"] as const;
+  const numericKeys = ["weightKg", "neckCm", "armCm", "waistCm", "abdomenCm", "hipCm", "thighCm"] as const;
 
   for (const key of numericKeys) {
     const raw = value[key];
