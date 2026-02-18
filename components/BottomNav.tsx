@@ -10,6 +10,7 @@ const tabs = [
   { href: "/today", label: "Hoy", icon: "home" },
   { href: "/workout", label: "Entreno", icon: "dumbbell" },
   { href: "/progress", label: "Progreso", icon: "chart" },
+  { href: "/measures", label: "Medidas", icon: "measure" },
   { href: "/import", label: "Importar", icon: "file" },
   { href: "/settings", label: "Ajustes", icon: "settings" },
 ];
@@ -50,6 +51,14 @@ function Icon({ name }: { name: string }) {
       </svg>
     );
   }
+  if (name === "measure") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
+        <path d="M3 7h18v10H3z" />
+        <path d="M7 7v10M11 7v5M15 7v10M19 7v5" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={common}>
       <path d="M12 3v3M12 18v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M3 12h3M18 12h3M4.9 19.1L7 17M17 7l2.1-2.1" />
@@ -76,7 +85,9 @@ export default function BottomNav() {
           const isActive =
             tab.href === "/progress"
               ? pathname === "/progress" || pathname.startsWith("/progress/")
-              : pathname === tab.href;
+              : tab.href === "/measures"
+                ? pathname === "/measures" || pathname.startsWith("/measures/")
+                : pathname === tab.href;
 
           return (
             <li key={tab.href}>

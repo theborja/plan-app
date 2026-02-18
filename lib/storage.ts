@@ -1,10 +1,11 @@
-import type { DayOfWeek, PlanV1, SelectionsV1, SettingsV1, TrainingDayMap } from "@/lib/types";
-import { isPlanV1, isSelectionsV1, isSettingsV1 } from "@/lib/validate";
+import type { DayOfWeek, MeasuresV1, PlanV1, SelectionsV1, SettingsV1, TrainingDayMap } from "@/lib/types";
+import { isMeasuresV1, isPlanV1, isSelectionsV1, isSettingsV1 } from "@/lib/validate";
 
 export const STORAGE_KEYS = {
   plan: "plan_v1",
   selections: "selections_v1",
   settings: "settings_v1",
+  measures: "measures_v1",
 } as const;
 
 const DEFAULT_TRAINING_DAY_MAP: TrainingDayMap = {
@@ -118,6 +119,13 @@ export function defaultSelectionsV1(): SelectionsV1 {
   };
 }
 
+export function defaultMeasuresV1(): MeasuresV1 {
+  return {
+    version: 1,
+    byWeek: {},
+  };
+}
+
 export function loadPlanV1(): PlanV1 | null {
   const parsed = safeRead(STORAGE_KEYS.plan);
   return isPlanV1(parsed) ? parsed : null;
@@ -165,6 +173,22 @@ export function saveSelectionsV1(selections: SelectionsV1): void {
     throw new Error("Invalid SelectionsV1 payload.");
   }
   safeWrite(STORAGE_KEYS.selections, selections);
+}
+
+export function loadMeasuresV1(): MeasuresV1 {
+  const parsed = safeRead(STORAGE_KEYS.measures);
+  if (isMeasuresV1(parsed)) return parsed;
+
+  const fallback = defaultMeasuresV1();
+  saveMeasuresV1(fallback);
+  return fallback;
+}
+
+export function saveMeasuresV1(measures: MeasuresV1): void {
+  if (!isMeasuresV1(measures)) {
+    throw new Error("Invalid MeasuresV1 payload.");
+  }
+  safeWrite(STORAGE_KEYS.measures, measures);
 }
 
 export function loadSettingsV1(): SettingsV1 {

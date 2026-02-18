@@ -300,7 +300,7 @@ export default function ProgressBlockDetailPage() {
         <div className="flex items-center justify-between gap-3">
           <Link
             href={mockEnabled ? "/progress?mock=1" : "/progress"}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-[var(--primary-end)]"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)]"
             aria-label="Volver"
           >
             {"<"}
@@ -308,12 +308,12 @@ export default function ProgressBlockDetailPage() {
           <h2 className="text-base font-semibold text-[var(--foreground)]">Progreso</h2>
           {mockEnabled ? (
             <div className="flex items-center gap-1.5">
-              <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-[var(--muted)]">
+              <span className="rounded-full bg-[var(--progress-chip-bg)] px-2 py-1 text-[10px] font-semibold text-[var(--progress-chip-fg)]">
                 Mock 3 meses
               </span>
               <button
                 type="button"
-                className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-[var(--primary-end)]"
+                className="rounded-full bg-[var(--progress-chip-bg)] px-2 py-1 text-[10px] font-semibold text-[var(--progress-chip-fg)]"
                 onClick={toggleMock}
               >
                 Sin mock
@@ -322,7 +322,7 @@ export default function ProgressBlockDetailPage() {
           ) : (
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-[var(--primary-end)]"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)]"
               aria-label="Activar mock"
               onClick={toggleMock}
             >
@@ -341,10 +341,14 @@ export default function ProgressBlockDetailPage() {
             id="block-selector"
             value={block.blockId}
             onChange={(event) => goToBlock(event.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--foreground)]"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--progress-chip-bg)] px-3 py-2 text-sm font-semibold text-[var(--foreground)]"
           >
             {blocks.map((item) => (
-              <option key={item.blockId} value={item.blockId}>
+              <option
+                key={item.blockId}
+                value={item.blockId}
+                style={{ color: "#0f172a", backgroundColor: "#ffffff" }}
+              >
                 {item.blockFullLabel}
               </option>
             ))}
@@ -352,8 +356,13 @@ export default function ProgressBlockDetailPage() {
         </div>
         <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-2">
           <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1 rounded-lg bg-white px-3 py-2 text-center text-xs font-semibold text-[var(--foreground)] shadow-sm">
-              {block.exercises[exerciseIndex]?.exerciseName ?? "-"}
+            <div className="min-w-0 flex-1 rounded-lg bg-[var(--progress-chip-bg)] px-3 py-2 text-center text-xs font-semibold text-[var(--progress-chip-fg)] shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 flex-1 truncate text-left">{block.exercises[exerciseIndex]?.exerciseName ?? "-"}</span>
+                <span className="shrink-0 text-[11px] font-medium text-[var(--progress-chip-muted-fg)]">
+                  Ejercicio {exerciseIndex + 1} de {block.exercises.length}
+                </span>
+              </div>
               <div className="mt-2 flex items-center justify-center gap-2">
                 {block.exercises.map((item, idx) => (
                   <button
@@ -362,7 +371,7 @@ export default function ProgressBlockDetailPage() {
                     onClick={() => setExerciseIndex(idx)}
                     className={[
                       "h-2.5 w-2.5 rounded-full transition",
-                      idx === exerciseIndex ? "bg-[var(--primary-end)]" : "bg-[var(--border)]",
+                      idx === exerciseIndex ? "bg-[var(--progress-chip-fg)]" : "bg-[var(--progress-chip-muted-fg)]",
                     ].join(" ")}
                     aria-label={`Ir al ejercicio ${idx + 1}`}
                   />
@@ -373,16 +382,12 @@ export default function ProgressBlockDetailPage() {
               type="button"
               onClick={() => setExerciseIndex((prev) => (prev + 1) % block.exercises.length)}
               disabled={block.exercises.length <= 1}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[var(--primary-end)] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)] disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Ejercicio siguiente"
             >
               {">"}
             </button>
           </div>
-          <div className="mt-2 text-center text-[11px] font-medium text-[var(--muted)]">
-            Ejercicio {exerciseIndex + 1} de {block.exercises.length}
-          </div>
-          <p className="mt-1 text-center text-[11px] text-[var(--muted)]">Desliza para cambiar de ejercicio</p>
         </div>
       </section>
 
@@ -395,7 +400,9 @@ export default function ProgressBlockDetailPage() {
               onClick={() => setPeriod(item)}
               className={[
                 "rounded-lg px-2 py-1.5 transition",
-                period === item ? "bg-white text-[var(--foreground)] shadow-sm" : "text-[var(--muted)]",
+                period === item
+                  ? "bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] text-white shadow-sm"
+                  : "bg-[var(--progress-chip-muted-bg)] text-[var(--progress-chip-muted-fg)]",
               ].join(" ")}
             >
               {item === "week" ? "Semana" : "Mes"}

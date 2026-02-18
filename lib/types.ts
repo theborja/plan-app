@@ -1,6 +1,7 @@
 export type PlanVersion = 1;
 export type SelectionsVersion = 1;
 export type SettingsVersion = 1;
+export type MeasuresVersion = 1;
 
 export type TrainingDayNumber = number;
 export type DayOfWeek = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
@@ -96,4 +97,21 @@ export type SettingsV1 = {
   version: SettingsVersion;
   nutritionStartDateISO: string;
   trainingDays: DayOfWeek[];
+};
+
+export type WeeklyMeasureEntry = {
+  weightKg?: number;
+  neckCm?: number;
+  waistCm?: number;
+  abdomenCm?: number;
+  hipCm?: number;
+  thighCm?: number;
+  note?: string;
+  updatedAtISO?: string;
+};
+
+export type MeasuresV1 = {
+  version: MeasuresVersion;
+  byWeek: Record<string, WeeklyMeasureEntry>;
+  avatarId?: string;
 };

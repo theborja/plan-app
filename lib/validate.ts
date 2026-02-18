@@ -1,11 +1,13 @@
 import type {
   DailySelections,
   DayOfWeek,
+  MeasuresV1,
   MealSelection,
   PlanV1,
   SelectionsV1,
   SettingsV1,
   MealType,
+  WeeklyMeasureEntry,
 } from "@/lib/types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -24,6 +26,10 @@ function isIsoDate(value: unknown): value is string {
 function isIsoDateTime(value: unknown): value is string {
   if (!isString(value)) return false;
   return !Number.isNaN(Date.parse(value));
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 const DAY_ORDER: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -89,6 +95,20 @@ function isDailySelections(value: unknown): value is DailySelections {
   return true;
 }
 
+function isWeeklyMeasureEntry(value: unknown): value is WeeklyMeasureEntry {
+  if (!isRecord(value)) return false;
+  const numericKeys = ["weightKg", "neckCm", "waistCm", "abdomenCm", "hipCm", "thighCm"] as const;
+
+  for (const key of numericKeys) {
+    const raw = value[key];
+    if (raw !== undefined && !isFiniteNumber(raw)) return false;
+  }
+
+  if (value.note !== undefined && !isString(value.note)) return false;
+  if (value.updatedAtISO !== undefined && !isIsoDateTime(value.updatedAtISO)) return false;
+  return true;
+}
+
 export function isPlanV1(value: unknown): value is PlanV1 {
   if (!isRecord(value)) return false;
   if (value.version !== 1) return false;
@@ -127,4 +147,18 @@ export function isSettingsV1(value: unknown): value is SettingsV1 {
 
   const unique = new Set(value.trainingDays);
   return unique.size === value.trainingDays.length;
+}
+
+export function isMeasuresV1(value: unknown): value is MeasuresV1 {
+  if (!isRecord(value)) return false;
+  if (value.version !== 1) return false;
+  if (!isRecord(value.byWeek)) return false;
+  if (value.avatarId !== undefined && !isString(value.avatarId)) return false;
+
+  for (const [weekIso, entry] of Object.entries(value.byWeek)) {
+    if (!isIsoDate(weekIso)) return false;
+    if (!isWeeklyMeasureEntry(entry)) return false;
+  }
+
+  return true;
 }
