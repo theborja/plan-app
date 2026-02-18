@@ -14,8 +14,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Plan App",
-  description: "Seguimiento de entrenamiento y nutricion",
+  title: "Fit Plan",
+  description: "Seguimiento de entrenamiento, nutricion y progreso",
+  applicationName: "Fit Plan",
+  icons: {
+    icon: [
+      { url: "/brand/logo-transparent.png", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [{ url: "/brand/logo-transparent.png", type: "image/png" }],
+  },
+  openGraph: {
+    title: "Fit Plan",
+    description: "Seguimiento de entrenamiento, nutricion y progreso",
+    type: "website",
+    images: [{ url: "/brand/logo-bg.png" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Fit Plan",
+    description: "Seguimiento de entrenamiento, nutricion y progreso",
+    images: ["/brand/logo-bg.png"],
+  },
 };
 
 export default function RootLayout({

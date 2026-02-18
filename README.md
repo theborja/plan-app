@@ -30,6 +30,20 @@ npm run start
 npm run lint
 ```
 
+## Branding (logo, favicon, iconos)
+
+Coloca tus logos en:
+
+- `public/brand/logo-transparent.png` (sin fondo)
+- `public/brand/logo-bg.png` (con fondo)
+
+Con esos archivos, la app usa automaticamente:
+
+- favicon / iconos de navegador
+- `apple-touch-icon`
+- Open Graph / Twitter image
+- `manifest` PWA
+
 ## Base de datos (PostgreSQL)
 
 La app usa Prisma con PostgreSQL para login/registro y sesiones.
