@@ -210,6 +210,7 @@ export default function SettingsPage() {
     window.localStorage.removeItem(STORAGE_KEYS.plan);
     window.localStorage.removeItem(STORAGE_KEYS.selections);
     window.localStorage.removeItem(STORAGE_KEYS.settings);
+    window.localStorage.removeItem(STORAGE_KEYS.measures);
     setShowResetConfirm(false);
     setPlan(null);
     setSelections(null);
@@ -394,7 +395,7 @@ export default function SettingsPage() {
       <Card title="Reset">
         <div className="space-y-2">
           <p className="text-sm text-zinc-600">
-            Borra `plan_v1`, `selections_v1` y `settings_v1` del localStorage.
+            Borra `plan_v1`, `selections_v1`, `settings_v1` y `measures_v1` del localStorage.
           </p>
           <button
             type="button"

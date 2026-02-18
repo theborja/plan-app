@@ -216,23 +216,16 @@ export default function ProgressPage() {
   return (
     <div className="space-y-4">
       <section className="rounded-[18px] border border-[color:color-mix(in_oklab,var(--primary-end)_48%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_80%,var(--primary-end)_20%)] p-4 shadow-[0_14px_28px_rgba(108,93,211,0.16)] animate-card">
-        <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-[var(--primary-end)]"
-            aria-label="Volver"
-          >
-            {"<"}
-          </button>
+        <div className="grid grid-cols-[1fr_auto] items-center gap-3">
           <h2 className="text-base font-semibold text-[var(--foreground)]">Progreso</h2>
           {mockEnabled ? (
             <div className="flex items-center gap-1.5">
-              <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-[var(--muted)]">
+              <span className="rounded-full bg-[var(--progress-chip-bg)] px-2 py-1 text-[10px] font-semibold text-[var(--progress-chip-fg)]">
                 Mock 3 meses
               </span>
               <button
                 type="button"
-                className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-[var(--primary-end)]"
+                className="rounded-full bg-[var(--progress-chip-bg)] px-2 py-1 text-[10px] font-semibold text-[var(--progress-chip-fg)]"
                 onClick={toggleMock}
               >
                 Sin mock
@@ -241,7 +234,7 @@ export default function ProgressPage() {
           ) : (
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-[var(--primary-end)]"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)]"
               aria-label="Activar mock"
               onClick={toggleMock}
             >
@@ -261,8 +254,8 @@ export default function ProgressPage() {
               className={[
                 "shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition",
                 block.blockId === selectedBlockId
-                  ? "bg-white text-[var(--foreground)] shadow-sm"
-                  : "bg-[var(--surface-soft)] text-[var(--muted)]",
+                  ? "bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] text-white shadow-sm"
+                  : "bg-[var(--progress-chip-muted-bg)] text-[var(--progress-chip-muted-fg)]",
               ].join(" ")}
             >
               {block.blockTabLabel}

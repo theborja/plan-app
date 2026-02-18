@@ -15,6 +15,10 @@
   --radius-card: 1rem;
   --radius-pill: 0.75rem;
   --shadow-soft: 0 8px 20px rgba(26, 40, 68, 0.08);
+  --progress-chip-bg: #ffffff;
+  --progress-chip-fg: #1d2240;
+  --progress-chip-muted-bg: #f3f5fd;
+  --progress-chip-muted-fg: #5a6485;
 }
 
 [data-theme="dark"] {
@@ -25,6 +29,10 @@
   --muted: #a6b1d3;
   --border: #2a365a;
   --shadow-soft: 0 8px 20px rgba(2, 6, 20, 0.45);
+  --progress-chip-bg: color-mix(in oklab, var(--primary-end) 62%, #2a2950 38%);
+  --progress-chip-fg: #f5f2ff;
+  --progress-chip-muted-bg: color-mix(in oklab, var(--primary-end) 38%, #1a2440 62%);
+  --progress-chip-muted-fg: #ddd6ff;
 }
 
 @theme inline {
