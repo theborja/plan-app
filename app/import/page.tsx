@@ -44,7 +44,7 @@ export default function ImportPage() {
     }));
   }, [parsedPlan]);
 
-  const canAccess = user ? isAdminUser(user) : false;
+  const canAccess = user ? isAdminUser(user.email) : false;
 
   async function handleFileChange(file: File | null) {
     if (!file) return;

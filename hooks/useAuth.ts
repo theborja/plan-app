@@ -3,98 +3,63 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   AUTH_CHANGED_EVENT,
-  type AuthUser,
-  fetchAuthMe,
+  AUTH_STORAGE_KEY,
+  getCurrentUser,
+  getSession,
   loginLocal,
-  registerLocal,
   logoutLocal,
 } from "@/lib/auth";
 
 type LoginResult = { ok: true } | { ok: false; message: string };
-type RegisterResult = { ok: true } | { ok: false; message: string };
 
 export function useAuth() {
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState(() => getCurrentUser());
 
-  const refresh = useCallback(async () => {
-    const auth = await fetchAuthMe();
-    setIsAuthenticated(auth.isAuthenticated);
-    setUser(auth.user);
+  const refresh = useCallback(() => {
+    const session = getSession();
+    setIsAuthenticated(!!session);
+    setUser(getCurrentUser());
     setIsReady(true);
   }, []);
 
   useEffect(() => {
-    void refresh();
+    refresh();
     if (typeof window === "undefined") return;
 
-    const onAuthChanged = () => {
-      void refresh();
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void refresh();
-      }
+    const onAuthChanged = () => refresh();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key && event.key !== AUTH_STORAGE_KEY) return;
+      refresh();
     };
 
     window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
-    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("storage", onStorage);
 
     return () => {
       window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
-      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("storage", onStorage);
     };
   }, [refresh]);
 
-  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+  const login = useCallback((email: string, password: string): LoginResult => {
     if (!email.trim() || !password.trim()) {
       return { ok: false, message: "Email y password son obligatorios." };
     }
 
-    try {
-      await loginLocal(email.trim(), password);
-      await refresh();
-      return { ok: true };
-    } catch (error) {
-      const message =
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error &&
-        typeof (error as { message?: unknown }).message === "string"
-          ? (error as { message: string }).message
-          : "Invalid email or password";
-      return { ok: false, message };
+    const result = loginLocal(email.trim(), password);
+    if (!result.ok) {
+      return { ok: false, message: "Invalid email or password" };
     }
+
+    refresh();
+    return { ok: true };
   }, [refresh]);
 
-  const register = useCallback(
-    async (email: string, password: string, name?: string): Promise<RegisterResult> => {
-      if (!email.trim() || !password.trim()) {
-        return { ok: false, message: "Email y password son obligatorios." };
-      }
-
-      try {
-        await registerLocal(email.trim(), password, name?.trim());
-        await refresh();
-        return { ok: true };
-      } catch (error) {
-        const message =
-          typeof error === "object" &&
-          error !== null &&
-          "message" in error &&
-          typeof (error as { message?: unknown }).message === "string"
-            ? (error as { message: string }).message
-            : "No se pudo registrar el usuario.";
-        return { ok: false, message };
-      }
-    },
-    [refresh],
-  );
-
-  const logout = useCallback(async () => {
-    await logoutLocal();
-    await refresh();
+  const logout = useCallback(() => {
+    logoutLocal();
+    refresh();
   }, [refresh]);
 
   return {
@@ -102,7 +67,6 @@ export function useAuth() {
     isReady,
     isAuthenticated,
     login,
-    register,
     logout,
     refresh,
   };
