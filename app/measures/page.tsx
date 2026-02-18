@@ -165,11 +165,16 @@ function getLatestMetricValue(
   return null;
 }
 
-function MuscleAvatar() {
+function MuscleAvatar({ className = "" }: { className?: string }) {
   const [frontImageLoaded, setFrontImageLoaded] = useState(false);
 
   return (
-    <div className="relative h-[30rem] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-soft)]">
+    <div
+      className={[
+        "relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-soft)]",
+        className,
+      ].join(" ")}
+    >
       {!frontImageLoaded ? (
         <div className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-[var(--muted)]">
           <p>
@@ -283,6 +288,10 @@ export default function MeasuresPage() {
   });
 
   const metricDef = METRICS.find((m) => m.key === activeMetric) ?? METRICS[0];
+  const activeMetricIndex = Math.max(
+    0,
+    METRICS.findIndex((metric) => metric.key === activeMetric),
+  );
 
   const realPoints = useMemo(() => {
     return Object.entries(measures.byWeek)
@@ -465,6 +474,10 @@ export default function MeasuresPage() {
                   className="mt-1 w-full rounded-xl bg-transparent px-2 py-1 text-base font-semibold text-[var(--foreground)] outline-none placeholder:font-normal placeholder:text-[var(--muted)] placeholder:opacity-55 focus:ring-2 focus:ring-[var(--primary-end)]"
                 />
               </label>
+            </div>
+          </div>
+          <div className="mt-2 grid grid-cols-[1fr_45%] gap-3 items-stretch">
+            <div className="space-y-2">
               {QUICK_FIELDS.map((field) => (
                 <label key={field.key} className="block rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
                   <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
@@ -482,37 +495,47 @@ export default function MeasuresPage() {
                   />
                 </label>
               ))}
-              <button
-                type="button"
-                onClick={saveQuickMeasures}
-                className="w-full rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white"
-              >
-                Guardar medidas
-              </button>
             </div>
-            <MuscleAvatar />
+            <div className="h-full">
+              <MuscleAvatar className="h-full min-h-[18rem]" />
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={saveQuickMeasures}
+            className="w-full rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white"
+          >
+            Guardar medidas
+          </button>
         </div>
       </Card>
 
       <Card>
         <div className="space-y-3">
-          <div className="grid grid-cols-7 gap-1">
-            {METRICS.map((metric) => (
-              <button
-                key={metric.key}
-                type="button"
-                onClick={() => setActiveMetric(metric.key)}
-                className={[
-                  "rounded-lg px-1 py-1.5 text-[11px] font-semibold leading-none transition",
-                  activeMetric === metric.key
-                    ? "bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] text-white shadow-sm"
-                    : "bg-[var(--surface-soft)] text-[var(--muted)]",
-                ].join(" ")}
-              >
-                {metric.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-1.5">
+            <button
+              type="button"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface)] text-[var(--muted)]"
+              aria-label="Medida anterior"
+              onClick={() =>
+                setActiveMetric(
+                  METRICS[(activeMetricIndex - 1 + METRICS.length) % METRICS.length].key,
+                )
+              }
+            >
+              {"<"}
+            </button>
+            <div className="flex-1 rounded-lg bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-1.5 text-center text-xs font-semibold text-white">
+              {metricDef.label}
+            </div>
+            <button
+              type="button"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface)] text-[var(--muted)]"
+              aria-label="Medida siguiente"
+              onClick={() => setActiveMetric(METRICS[(activeMetricIndex + 1) % METRICS.length].key)}
+            >
+              {">"}
+            </button>
           </div>
           <div>
             <p className="text-4xl font-bold text-[var(--foreground)]">
