@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
+import { useAuth } from "@/hooks/useAuth";
 import { buildProgressBlocks, type ProgressPoint, withMockProgressData } from "@/lib/progress";
 import {
   loadPlanV1,
@@ -124,12 +125,13 @@ function Sparkline({ points }: { points: ProgressPoint[] }) {
 
 export default function ProgressPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { user } = useAuth();
   const [plan, setPlan] = useState<PlanV1 | null>(null);
   const [settings, setSettings] = useState<SettingsV1 | null>(null);
   const [selections, setSelections] = useState<SelectionsV1 | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const isMockUser = (user?.email ?? "").trim().toLowerCase() === "mock";
 
   useEffect(() => {
     setPlan(loadPlanV1());
@@ -141,10 +143,8 @@ export default function ProgressPage() {
   const blocks = useMemo(() => {
     if (!plan || !settings || !selections) return [];
     const base = buildProgressBlocks(plan, selections, settings);
-    const mockEnabled = searchParams.get("mock") === "1";
-    return mockEnabled ? withMockProgressData(base, 3) : base;
-  }, [plan, settings, selections, searchParams]);
-  const mockEnabled = searchParams.get("mock") === "1";
+    return isMockUser ? withMockProgressData(base, 3) : base;
+  }, [plan, settings, selections, isMockUser]);
 
   useEffect(() => {
     if (blocks.length === 0) {
@@ -194,56 +194,17 @@ export default function ProgressPage() {
   }
 
   const getDetailHref = (exerciseIndex?: number) => {
-    const base = `/progress/${selectedBlock.blockId}`;
-    const params = new URLSearchParams();
-    if (mockEnabled) params.set("mock", "1");
-    if (exerciseIndex !== undefined) params.set("exercise", String(exerciseIndex));
-    const query = params.toString();
-    return query ? `${base}?${query}` : base;
-  };
-
-  const toggleMock = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (mockEnabled) {
-      params.delete("mock");
-    } else {
-      params.set("mock", "1");
+    if (exerciseIndex === undefined) {
+      return `/progress/${selectedBlock.blockId}`;
     }
-    const query = params.toString();
-    router.push(query ? `/progress?${query}` : "/progress");
+    return `/progress/${selectedBlock.blockId}?exercise=${exerciseIndex}`;
   };
 
   return (
     <div className="space-y-4">
       <section className="rounded-[18px] border border-[color:color-mix(in_oklab,var(--primary-end)_48%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_80%,var(--primary-end)_20%)] p-4 shadow-[0_14px_28px_rgba(108,93,211,0.16)] animate-card">
-        <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold text-[var(--foreground)]">Progreso</h2>
-          {mockEnabled ? (
-            <div className="flex items-center gap-1.5">
-              <span className="rounded-full bg-[var(--progress-chip-bg)] px-2 py-1 text-[10px] font-semibold text-[var(--progress-chip-fg)]">
-                Mock 3 meses
-              </span>
-              <button
-                type="button"
-                className="rounded-full bg-[var(--progress-chip-bg)] px-2 py-1 text-[10px] font-semibold text-[var(--progress-chip-fg)]"
-                onClick={toggleMock}
-              >
-                Sin mock
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)]"
-              aria-label="Activar mock"
-              onClick={toggleMock}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-                <path d="M20 11a8 8 0 1 1-2.3-5.7" />
-                <path d="M20 4v7h-7" />
-              </svg>
-            </button>
-          )}
         </div>
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           {blocks.map((block) => (

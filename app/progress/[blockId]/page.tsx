@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
+import { useAuth } from "@/hooks/useAuth";
 import { formatDateDDMMYYYY } from "@/lib/date";
 import { buildProgressBlocks, type ProgressPoint, withMockProgressData } from "@/lib/progress";
 import { loadPlanV1, loadSelectionsV1, loadSettingsV1 } from "@/lib/storage";
@@ -165,9 +166,10 @@ export default function ProgressBlockDetailPage() {
   const params = useParams<{ blockId: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const blockId = params?.blockId ?? "";
-  const mockEnabled = searchParams.get("mock") === "1";
   const requestedExercise = Number(searchParams.get("exercise"));
+  const isMockUser = (user?.email ?? "").trim().toLowerCase() === "mock";
 
   const [plan, setPlan] = useState<PlanV1 | null>(null);
   const [settings, setSettings] = useState<SettingsV1 | null>(null);
@@ -186,9 +188,8 @@ export default function ProgressBlockDetailPage() {
   const blocks = useMemo(() => {
     if (!plan || !settings || !selections) return [];
     const base = buildProgressBlocks(plan, selections, settings);
-    const mockEnabled = searchParams.get("mock") === "1";
-    return mockEnabled ? withMockProgressData(base, 3) : base;
-  }, [plan, settings, selections, searchParams]);
+    return isMockUser ? withMockProgressData(base, 3) : base;
+  }, [plan, settings, selections, isMockUser]);
 
   const block = blocks.find((item) => item.blockId === blockId) ?? null;
 
@@ -231,22 +232,9 @@ export default function ProgressBlockDetailPage() {
   const goToBlock = (targetBlockId: string): void => {
     if (!targetBlockId || targetBlockId === blockId) return;
     const params = new URLSearchParams();
-    if (mockEnabled) params.set("mock", "1");
     params.set("exercise", String(exerciseIndex));
     const query = params.toString();
     const href = query ? `/progress/${targetBlockId}?${query}` : `/progress/${targetBlockId}`;
-    router.push(href);
-  };
-
-  const toggleMock = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (mockEnabled) {
-      params.delete("mock");
-    } else {
-      params.set("mock", "1");
-    }
-    const query = params.toString();
-    const href = query ? `/progress/${blockId}?${query}` : `/progress/${blockId}`;
     router.push(href);
   };
 
@@ -299,39 +287,14 @@ export default function ProgressBlockDetailPage() {
       <section className="rounded-[18px] border border-[color:color-mix(in_oklab,var(--primary-end)_48%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_80%,var(--primary-end)_20%)] p-4 shadow-[0_14px_28px_rgba(108,93,211,0.16)] animate-card">
         <div className="flex items-center justify-between gap-3">
           <Link
-            href={mockEnabled ? "/progress?mock=1" : "/progress"}
+            href="/progress"
             className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)]"
             aria-label="Volver"
           >
             {"<"}
           </Link>
           <h2 className="text-base font-semibold text-[var(--foreground)]">Progreso</h2>
-          {mockEnabled ? (
-            <div className="flex items-center gap-1.5">
-              <span className="rounded-full bg-[var(--progress-chip-bg)] px-2 py-1 text-[10px] font-semibold text-[var(--progress-chip-fg)]">
-                Mock 3 meses
-              </span>
-              <button
-                type="button"
-                className="rounded-full bg-[var(--progress-chip-bg)] px-2 py-1 text-[10px] font-semibold text-[var(--progress-chip-fg)]"
-                onClick={toggleMock}
-              >
-                Sin mock
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)]"
-              aria-label="Activar mock"
-              onClick={toggleMock}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-                <path d="M20 11a8 8 0 1 1-2.3-5.7" />
-                <path d="M20 4v7h-7" />
-              </svg>
-            </button>
-          )}
+          <span className="h-8 w-8" />
         </div>
         <div className="mt-2">
           <label className="sr-only" htmlFor="block-selector">
