@@ -115,7 +115,7 @@ export default function SettingsPage() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const canAccess = user ? isAdminUser(user) : false;
+  const canAccess = user ? isAdminUser(user.email) : false;
 
   useEffect(() => {
     if (!isReady) return;
@@ -412,9 +412,8 @@ export default function SettingsPage() {
           type="button"
           className="w-full rounded-xl bg-zinc-900 px-3 py-2 text-sm font-semibold text-white"
           onClick={() => {
-            void logoutLocal().then(() => {
-              void refresh();
-            });
+            logoutLocal();
+            refresh();
             router.replace("/login");
           }}
         >

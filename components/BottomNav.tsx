@@ -72,7 +72,7 @@ export default function BottomNav() {
   const { user } = useAuth();
 
   const visibleTabs = useMemo(() => {
-    if (user && isAdminUser(user)) {
+    if (user && isAdminUser(user.email)) {
       return tabs;
     }
     return tabs.filter((tab) => tab.href !== "/import" && tab.href !== "/settings");
