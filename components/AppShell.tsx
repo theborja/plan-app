@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import BottomNav from "@/components/BottomNav";
-import PlanBootstrap from "@/components/PlanBootstrap";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { isAdminUser, logoutLocal } from "@/lib/auth";
@@ -91,7 +90,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               isAdminPanelPage ? "pb-4" : "pb-[calc(6rem+env(safe-area-inset-bottom))]",
             ].join(" ")}
           >
-            <PlanBootstrap />
             {children}
           </main>
           {isAdminPanelPage ? null : <BottomNav />}

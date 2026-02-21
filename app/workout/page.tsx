@@ -1,23 +1,46 @@
-"use client";
+﻿"use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
+import NoPlanState from "@/components/NoPlanState";
 import Skeleton from "@/components/Skeleton";
-import { useAuth } from "@/hooks/useAuth";
-import {
-  formatDateShortSpanish,
-  getAutoTrainingWeekdays,
-  getDayOfWeek,
-  getLocalISODate,
-  getNextTrainingDay,
-  isTrainingDay,
-} from "@/lib/date";
-import { resolveTrainingDay } from "@/lib/planResolver";
-import { buildProgressBlocks, withMockProgressData } from "@/lib/progress";
-import { loadPlanV1, loadSelectionsV1, loadSettingsV1, saveSelectionsV1 } from "@/lib/storage";
-import type { PlanV1, SelectionsV1, SettingsV1 } from "@/lib/types";
+import { fetchJson, postJson } from "@/lib/clientApi";
+import { formatDateShortSpanish, getDayOfWeek, getLocalISODate, getNextTrainingDay } from "@/lib/date";
+
+type DayPayload = {
+  noPlan?: boolean;
+  trainingDay: {
+    id: string;
+    dayIndex: number;
+    label: string;
+    exercises: Array<{
+      id: string;
+      exerciseIndex: number;
+      name: string;
+      sets: number | null;
+      reps: string | null;
+      restSeconds: number | null;
+      notes: string | null;
+    }>;
+  } | null;
+  session: {
+    id: string;
+    note: string;
+    setLogsByExerciseId: Record<string, Array<{ setNumber: number; weightKg: number | null }>>;
+  } | null;
+  settings: {
+    trainingDays: Array<"Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun">;
+  };
+};
+
+type DraftWeights = Record<string, string[]>;
+
+type SaveResponse = {
+  ok: true;
+  sessionId: string;
+  savedSetLogs: number;
+};
 
 function formatRest(restSeconds?: number | null): string {
   if (restSeconds === undefined || restSeconds === null) return "-";
@@ -25,24 +48,6 @@ function formatRest(restSeconds?: number | null): string {
   const min = Math.floor(restSeconds / 60);
   const sec = restSeconds % 60;
   return sec === 0 ? `${min}min` : `${min}min ${sec}s`;
-}
-
-function splitStoredSeriesWeights(value: string | undefined, seriesCount: number): string[] {
-  const count = Math.max(1, seriesCount);
-  if (!value || !value.trim()) {
-    return Array.from({ length: count }, () => "");
-  }
-
-  const parts = value.includes("||")
-    ? value.split("||").map((part) => part.trim())
-    : [value.trim()];
-
-  const normalized = Array.from({ length: count }, (_, index) => parts[index] ?? "");
-  return normalized;
-}
-
-function joinSeriesWeights(values: string[]): string {
-  return values.map((value) => value.trim()).join("||");
 }
 
 function addDays(isoDate: string, amount: number): string {
@@ -55,141 +60,165 @@ function addDays(isoDate: string, amount: number): string {
   return `${y}-${m}-${d}`;
 }
 
-export default function WorkoutPage() {
-  const { user } = useAuth();
-  const isMockUser = (user?.email ?? "").trim().toLowerCase() === "mock";
-  const [plan, setPlan] = useState<PlanV1 | null>(null);
-  const [settings, setSettings] = useState<SettingsV1 | null>(null);
-  const [selections, setSelections] = useState<SelectionsV1 | null>(null);
-  const [selectedIsoDate, setSelectedIsoDate] = useState<string>(getLocalISODate());
-  const [isLoading, setIsLoading] = useState(true);
+function buildDraftFromPayload(payload: DayPayload | null): { note: string; weights: DraftWeights } {
+  if (!payload?.trainingDay) {
+    return { note: "", weights: {} };
+  }
 
-  const dayOfWeek = getDayOfWeek(selectedIsoDate);
-  const trainingWeekdays =
-    settings && settings.trainingDays.length > 0
-      ? settings.trainingDays
-      : getAutoTrainingWeekdays(plan?.training.days.length ?? 0);
-  const trainingToday = isTrainingDay(dayOfWeek, trainingWeekdays);
-  const nextTraining = trainingWeekdays.length > 0 ? getNextTrainingDay(selectedIsoDate, trainingWeekdays) : null;
+  const note = payload.session?.note ?? "";
+  const weights: DraftWeights = {};
+
+  for (const exercise of payload.trainingDay.exercises) {
+    const seriesCount = Math.max(1, exercise.sets ?? 1);
+    const logs = payload.session?.setLogsByExerciseId[exercise.id] ?? [];
+    const arr = Array.from({ length: seriesCount }, () => "");
+
+    for (const log of logs) {
+      const idx = log.setNumber - 1;
+      if (idx >= 0 && idx < arr.length) {
+        arr[idx] = log.weightKg === null ? "" : String(log.weightKg);
+      }
+    }
+
+    weights[exercise.id] = arr;
+  }
+
+  return { note, weights };
+}
+
+export default function WorkoutPage() {
+  const [selectedIsoDate, setSelectedIsoDate] = useState<string>(getLocalISODate());
+  const [data, setData] = useState<DayPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [draftNote, setDraftNote] = useState("");
+  const [draftWeights, setDraftWeights] = useState<DraftWeights>({});
 
   useEffect(() => {
-    setPlan(loadPlanV1());
-    setSettings(loadSettingsV1());
-    setSelections(loadSelectionsV1());
-    setIsLoading(false);
-  }, []);
+    void (async () => {
+      setIsLoading(true);
+      try {
+        const payload = await fetchJson<DayPayload>(`/api/workout/day?date=${selectedIsoDate}`);
+        setData(payload);
+        const draft = buildDraftFromPayload(payload);
+        setDraftNote(draft.note);
+        setDraftWeights(draft.weights);
+        setIsDirty(false);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [selectedIsoDate]);
 
-  const trainingDay = useMemo(() => {
-    if (!plan || !settings || !trainingToday) return null;
-    return resolveTrainingDay(plan, selectedIsoDate, settings);
-  }, [plan, settings, trainingToday, selectedIsoDate]);
-
-  const mockBlocks = useMemo(() => {
-    if (!isMockUser || !plan || !settings || !selections) return [];
-    return withMockProgressData(buildProgressBlocks(plan, selections, settings), 3);
-  }, [isMockUser, plan, selections, settings]);
-
-  const trainingDayIndexInPlan = useMemo(() => {
-    if (!plan || !trainingDay) return -1;
-    return plan.training.days.findIndex((day) => day.dayIndex === trainingDay.dayIndex);
-  }, [plan, trainingDay]);
-
-  const mockBlockForDay =
-    trainingDayIndexInPlan >= 0 ? (mockBlocks[trainingDayIndexInPlan] ?? null) : null;
-
-  const doneIndexes = selections?.byDate?.[selectedIsoDate]?.workout?.doneExerciseIndexes ?? [];
-  const lastWeightByExerciseIndex =
-    selections?.byDate?.[selectedIsoDate]?.workout?.lastWeightByExerciseIndex ?? {};
-  const workoutNote = selections?.byDate?.[selectedIsoDate]?.workout?.note ?? "";
-
-  function updateWorkout(patch: {
-    doneExerciseIndexes?: number[];
-    note?: string;
-    lastWeightByExerciseIndex?: Record<string, string>;
-  }) {
-    if (!selections) return;
-
-    const next: SelectionsV1 = {
-      ...selections,
-      byDate: { ...selections.byDate },
-    };
-
-    const currentDay = next.byDate[selectedIsoDate] ?? { meals: {} };
-    const currentWorkout = currentDay.workout ?? { doneExerciseIndexes: [] };
-    next.byDate[selectedIsoDate] = {
-      ...currentDay,
-      workout: {
-        doneExerciseIndexes: [
-          ...(patch.doneExerciseIndexes ?? currentWorkout.doneExerciseIndexes),
-        ].sort((a, b) => a - b),
-        note: patch.note ?? currentWorkout.note,
-        lastWeightByExerciseIndex:
-          patch.lastWeightByExerciseIndex ?? currentWorkout.lastWeightByExerciseIndex ?? {},
-        updatedAtISO: new Date().toISOString(),
-      },
-    };
-
-    setSelections(next);
-    saveSelectionsV1(next);
+  function setDateWithGuard(nextDate: string) {
+    if (nextDate === selectedIsoDate) return;
+    if (isDirty) {
+      const ok = window.confirm("Tienes cambios sin guardar. Si cambias de fecha los perderas. ¿Continuar?");
+      if (!ok) return;
+    }
+    setSelectedIsoDate(nextDate);
   }
 
-  if (!plan) {
-    return (
-      <div className="space-y-4">
-        {isLoading ? (
-          <Card title="Cargando plan">
-            <Skeleton lines={4} />
-          </Card>
-        ) : (
-          <EmptyState
-            title="No hay plan cargado"
-            description="Importa un plan para ver tu entrenamiento."
-            action={
-              <Link
-                href="/import"
-                className="inline-flex rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-4 py-2 text-sm font-semibold text-white"
-              >
-                Ir a importar
-              </Link>
-            }
-          />
-        )}
-      </div>
-    );
+  function updateWeight(exerciseId: string, setIndex: number, value: string) {
+    setDraftWeights((prev) => {
+      const current = prev[exerciseId] ?? [];
+      const next = [...current];
+      next[setIndex] = value;
+      return { ...prev, [exerciseId]: next };
+    });
+    setIsDirty(true);
   }
+
+  function updateNote(note: string) {
+    setDraftNote(note);
+    setIsDirty(true);
+  }
+
+  async function saveWorkout() {
+    if (!data?.trainingDay) return;
+
+    setIsSaving(true);
+    try {
+      const setLogs: Array<{ exerciseId: string; setNumber: number; weightKg: number }> = [];
+
+      for (const exercise of data.trainingDay.exercises) {
+        const values = draftWeights[exercise.id] ?? [];
+        values.forEach((raw, idx) => {
+          const trimmed = raw.trim();
+          if (!trimmed) return;
+          const parsed = Number(trimmed.replace(",", "."));
+          if (!Number.isFinite(parsed)) return;
+          setLogs.push({
+            exerciseId: exercise.id,
+            setNumber: idx + 1,
+            weightKg: parsed,
+          });
+        });
+      }
+
+      await postJson<SaveResponse>("/api/workout/save", {
+        dateISO: selectedIsoDate,
+        note: draftNote,
+        setLogs,
+      });
+
+      setIsDirty(false);
+    } catch (error) {
+      // Keep UI clean; guardado errors are intentionally silent in this header.
+      void error;
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const dayOfWeek = getDayOfWeek(selectedIsoDate);
+  const trainingWeekdays = data?.settings.trainingDays ?? [];
+  const trainingToday = trainingWeekdays.includes(dayOfWeek as (typeof trainingWeekdays)[number]);
+  const nextTraining = trainingWeekdays.length > 0 ? getNextTrainingDay(selectedIsoDate, trainingWeekdays) : null;
 
   const dayPicker = (
     <div className="flex items-center gap-2">
       <button
         type="button"
-        className="rounded-lg bg-[var(--surface-soft)] px-2 py-1 text-xs font-semibold text-[var(--muted)]"
-        onClick={() => setSelectedIsoDate((prev) => addDays(prev, -1))}
+        className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--muted)]"
+        onClick={() => setDateWithGuard(addDays(selectedIsoDate, -1))}
       >
         Dia anterior
       </button>
       <button
         type="button"
-        className="rounded-lg bg-[var(--surface-soft)] px-2 py-1 text-xs font-semibold text-[var(--muted)]"
-        onClick={() => setSelectedIsoDate((prev) => addDays(prev, 1))}
+        className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--muted)]"
+        onClick={() => setDateWithGuard(addDays(selectedIsoDate, 1))}
       >
         Dia siguiente
       </button>
       <input
         type="date"
-        className="ml-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--foreground)]"
         value={selectedIsoDate}
-        onChange={(event) => {
-          if (!event.target.value) return;
-          setSelectedIsoDate(event.target.value);
-        }}
+        onChange={(e) => setDateWithGuard(e.target.value)}
+        className="ml-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]"
       />
     </div>
   );
+
   const highlightedDayPicker = (
     <div className="rounded-xl border border-[color:color-mix(in_oklab,var(--primary-end)_45%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface-soft)_75%,var(--primary-end)_25%)] p-2">
       {dayPicker}
     </div>
   );
+
+  if (isLoading) {
+    return (
+      <Card title="Cargando entreno">
+        <Skeleton lines={4} />
+      </Card>
+    );
+  }
+
+  if (data?.noPlan) {
+    return <NoPlanState />;
+  }
 
   if (!trainingToday) {
     return (
@@ -198,160 +227,68 @@ export default function WorkoutPage() {
           <h2 className="text-base font-semibold text-[var(--foreground)]">Fecha de consulta</h2>
           <div className="mt-3">{highlightedDayPicker}</div>
         </section>
+
         <Card title="Entreno de hoy" subtitle="Dia de descanso">
           <p className="text-sm font-semibold text-[var(--foreground)]">Descanso</p>
-          {nextTraining ? (
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              Proximo entreno: {formatDateShortSpanish(nextTraining.isoDate)}
-            </p>
-          ) : (
-            <p className="mt-2 text-sm text-[var(--muted)]">No hay dias de entrenamiento definidos.</p>
-          )}
+          {nextTraining ? <p className="mt-2 text-sm text-[var(--muted)]">Proximo entreno: {formatDateShortSpanish(nextTraining.isoDate)}</p> : null}
         </Card>
-        <EmptyState
-          title="El musculo crece en el descanso"
-          description="Descansar es importante, amigo."
-        />
+        <EmptyState title="El musculo crece en el descanso" description="Descansar es importante, amigo." />
       </div>
     );
   }
 
-  if (!trainingDay) {
-    return (
-      <div className="space-y-4">
-        <Card title="Entreno de hoy">
-          <p className="text-sm text-[var(--muted)]">
-            No se encontro rutina para hoy. Revisa el plan importado.
-          </p>
-        </Card>
-      </div>
-    );
+  if (!data?.trainingDay) {
+    return <Card title="Entreno de hoy"><p className="text-sm text-[var(--muted)]">No se encontro rutina para hoy.</p></Card>;
   }
-
-  const allDone = trainingDay.exercises.length > 0 && doneIndexes.length === trainingDay.exercises.length;
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[var(--radius-card)] border border-[color:color-mix(in_oklab,var(--primary-end)_50%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] p-4 shadow-[0_10px_24px_rgba(108,93,211,0.16)] animate-card">
-        <h2 className="text-base font-semibold text-[var(--foreground)]">{trainingDay.label}</h2>
-        <div className="mt-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-[var(--muted)]">{formatDateShortSpanish(selectedIsoDate)}</p>
-            <label className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)]">
-              <input
-                type="checkbox"
-                checked={allDone}
-                onChange={(event) => {
-                  if (event.target.checked) {
-                    updateWorkout({
-                      doneExerciseIndexes: trainingDay.exercises.map((_, idx) => idx),
-                    });
-                  } else {
-                    updateWorkout({ doneExerciseIndexes: [] });
-                  }
-                }}
-              />
-              Marcar todo
-            </label>
+      <section className="rounded-[var(--radius-card)] border border-[color:color-mix(in_oklab,var(--primary-end)_50%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-[var(--foreground)]">{data.trainingDay.label}</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">{formatDateShortSpanish(selectedIsoDate)}</p>
           </div>
-          <div className="mt-2">{highlightedDayPicker}</div>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Hechos: {doneIndexes.length}/{trainingDay.exercises.length}
-          </p>
+          <button
+            type="button"
+            onClick={() => void saveWorkout()}
+            disabled={isSaving || !isDirty}
+            className="rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+          >
+            {isSaving ? "Guardando..." : "Guardar datos"}
+          </button>
         </div>
+
+        <div className="mt-2">{highlightedDayPicker}</div>
       </section>
 
-      {trainingDay.exercises.map((exercise, index) => {
-        const isDone = doneIndexes.includes(index);
-        const exerciseKey = String(index);
-        const storedWeight = lastWeightByExerciseIndex[exerciseKey];
-        const seriesCount = Math.max(1, exercise.series ?? 1);
-        const mockWeight = mockBlockForDay?.exercises[index]?.points.at(-1)?.weightKg ?? null;
-        const mockSeriesFallback =
-          mockWeight !== null ? Array.from({ length: seriesCount }, () => String(mockWeight)).join("||") : "";
-        const fallbackMostRecent = isMockUser ? mockSeriesFallback : "";
-        const seriesWeights = splitStoredSeriesWeights(storedWeight ?? fallbackMostRecent, seriesCount);
+      {data.trainingDay.exercises.map((exercise) => {
+        const seriesCount = Math.max(1, exercise.sets ?? 1);
+        const values = draftWeights[exercise.id] ?? Array.from({ length: seriesCount }, () => "");
+
         return (
-          <Card key={exercise.id || `${trainingDay.dayIndex}-${index}`}>
+          <Card key={exercise.id}>
             <div className="space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-semibold text-[var(--foreground)]">{exercise.name}</p>
-                <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                  <input
-                    type="checkbox"
-                    checked={isDone}
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        updateWorkout({ doneExerciseIndexes: [...doneIndexes, index] });
-                      } else {
-                        updateWorkout({
-                          doneExerciseIndexes: doneIndexes.filter(
-                            (doneIndex) => doneIndex !== index,
-                          ),
-                        });
-                      }
-                    }}
-                  />
-                  hecho
-                </label>
-              </div>
-
+              <p className="text-sm font-semibold text-[var(--foreground)]">{exercise.name}</p>
               <div className="grid grid-cols-3 gap-2 text-xs text-[var(--muted)]">
-                <p className="rounded-lg bg-[var(--surface-soft)] px-2 py-1">
-                  Series: {exercise.series ?? "-"}
-                </p>
-                <p className="rounded-lg bg-[var(--surface-soft)] px-2 py-1">
-                  Reps: {exercise.reps ?? "-"}
-                </p>
-                <p className="rounded-lg bg-[var(--surface-soft)] px-2 py-1">
-                  Descanso: {formatRest(exercise.restSeconds)}
-                </p>
+                <p className="rounded-lg bg-[var(--surface-soft)] px-2 py-1">Series: {exercise.sets ?? "-"}</p>
+                <p className="rounded-lg bg-[var(--surface-soft)] px-2 py-1">Reps: {exercise.reps ?? "-"}</p>
+                <p className="rounded-lg bg-[var(--surface-soft)] px-2 py-1">Descanso: {formatRest(exercise.restSeconds)}</p>
               </div>
-
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-[var(--muted)]">Peso por serie</p>
-                <div
-                  className={[
-                    "grid gap-1.5",
-                    seriesCount >= 4 ? "grid-cols-4" : "grid-cols-3",
-                  ].join(" ")}
-                >
-                  {seriesWeights.map((weight, setIndex) => (
-                    <input
-                      key={`${exerciseKey}-${setIndex}`}
-                      type="text"
-                      inputMode="decimal"
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--foreground)]"
-                      placeholder={`S${setIndex + 1}`}
-                      value={weight}
-                      onChange={(event) => {
-                        const nextSeriesWeights = [...seriesWeights];
-                        nextSeriesWeights[setIndex] = event.target.value;
-                        const allSeriesCompleted = nextSeriesWeights.every(
-                          (seriesWeight) => seriesWeight.trim().length > 0,
-                        );
-
-                        const nextDoneExerciseIndexes = allSeriesCompleted
-                          ? Array.from(new Set([...doneIndexes, index])).sort((a, b) => a - b)
-                          : doneIndexes.filter((doneIndex) => doneIndex !== index);
-
-                        const nextWeights = {
-                          ...lastWeightByExerciseIndex,
-                          [exerciseKey]: joinSeriesWeights(nextSeriesWeights),
-                        };
-                        updateWorkout({
-                          lastWeightByExerciseIndex: nextWeights,
-                          doneExerciseIndexes: nextDoneExerciseIndexes,
-                        });
-                      }}
-                    />
-                  ))}
-                </div>
+              <div className={["grid gap-1.5", seriesCount >= 4 ? "grid-cols-4" : "grid-cols-3"].join(" ")}>
+                {Array.from({ length: seriesCount }, (_, idx) => (
+                  <input
+                    key={`${exercise.id}-${idx}`}
+                    type="text"
+                    inputMode="decimal"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
+                    placeholder={`S${idx + 1}`}
+                    value={values[idx] ?? ""}
+                    onChange={(event) => updateWeight(exercise.id, idx, event.target.value)}
+                  />
+                ))}
               </div>
-
-              {exercise.notes && !exercise.notes.includes("|") ? (
-                <p className="text-xs text-[var(--muted)]">{exercise.notes}</p>
-              ) : null}
+              {exercise.notes ? <p className="text-xs text-[var(--muted)]">{exercise.notes}</p> : null}
             </div>
           </Card>
         );
@@ -359,10 +296,10 @@ export default function WorkoutPage() {
 
       <Card title="Nota del entreno">
         <textarea
-          className="min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]"
+          className="min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
           placeholder="Como te fue hoy..."
-          value={workoutNote}
-          onChange={(event) => updateWorkout({ note: event.target.value })}
+          value={draftNote}
+          onChange={(event) => updateNote(event.target.value)}
         />
       </Card>
     </div>

@@ -1,11 +1,12 @@
 # plan-app
 
-Web app personal mobile-first para seguimiento de plan de entrenamiento y nutricion.
+Web app mobile-first para seguimiento de entrenamiento, nutricion, progreso y medidas con persistencia 100% en PostgreSQL (sin localStorage de negocio).
 
 ## Requisitos
 
 - Node.js 18.18.0 o superior (recomendado: Node.js 20 LTS)
 - npm
+- PostgreSQL accesible
 
 ## Instalacion
 
@@ -28,48 +29,40 @@ npm run dev
 npm run build
 npm run start
 npm run lint
+npm run db:generate
+npm run db:migrate
+npm run db:seed
+npm run db:clean-domain
 ```
 
-## Branding (logo, favicon, iconos)
-
-Coloca tus logos en:
-
-- `public/brand/logo-transparent.png` (sin fondo)
-- `public/brand/logo-bg.png` (con fondo)
-
-Con esos archivos, la app usa automaticamente:
-
-- favicon / iconos de navegador
-- `apple-touch-icon`
-- Open Graph / Twitter image
-- `manifest` PWA
-
 ## Base de datos (PostgreSQL)
-
-La app usa Prisma con PostgreSQL para login/registro y sesiones.
 
 Variable obligatoria:
 
 `DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB?schema=public`
 
-Puedes copiar `.env.example` a `.env` en local y rellenar la URL.
+Flujo recomendado en entorno nuevo:
 
-Flujo recomendado:
-
-1. Configura `DATABASE_URL` en local y en Vercel (Preview + Production).
+1. Configura `DATABASE_URL`.
 2. Genera cliente Prisma:
 
 ```bash
 npm run db:generate
 ```
 
-3. Aplica esquema en la base de datos:
+3. (Opcional para entorno sucio) limpia solo dominio, manteniendo auth (`User`/`Session`):
 
 ```bash
-npm run db:push
+npm run db:clean-domain
 ```
 
-4. Carga usuarios base:
+4. Aplica migraciones:
+
+```bash
+npm run db:migrate
+```
+
+5. Carga usuarios base:
 
 ```bash
 npm run db:seed
@@ -78,55 +71,44 @@ npm run db:seed
 Usuarios seed:
 
 - `admin / admin`
+- `borja / borja`
 - `user / user`
 - `mock / mock`
 
-Si `DATABASE_URL` no existe (o no es PostgreSQL), los endpoints de auth no funcionaran.
+## Importacion de planes (admin)
 
-## Excel base por defecto
+1. Entra a `/import` con usuario admin.
+2. Selecciona el usuario destino.
+3. Sube un `.xlsx`.
+4. Revisa preview.
+5. Pulsa `Guardar y asignar plan`.
 
-Coloca el archivo Excel base en:
+La importacion:
 
-`public/default-plan.xlsx`
+- parsea `PLAN NUTRICIONAL` y `PLAN ENTRENAMIENTO`.
+- crea nuevo plan del usuario destino en BBDD.
+- desactiva el plan activo previo del mismo usuario.
+- mantiene historico de planes.
 
-En el primer arranque, si no existe `plan_v1` en `localStorage`, la app carga ese archivo automaticamente como plan base.
+## Persistencia
 
-## Reemplazar plan con un nuevo Excel
+La app persiste en BBDD:
 
-1. Abre `Importar` (`/import`).
-2. Sube un archivo `.xlsx`.
-3. La app parsea solo las hojas:
-   - `PLAN NUTRICIONAL`
-   - `PLAN ENTRENAMIENTO`
-4. Revisa el preview.
-5. Pulsa `Guardar y reemplazar plan`.
+- plan activo + historico por usuario
+- seleccion nutricional diaria
+- sesiones de entreno + pesos por serie
+- progreso y graficos
+- medidas semanales
 
-Nota: al reemplazar plan, `selections_v1` se limpia para evitar referencias incompatibles con IDs del plan anterior.
+`localStorage` solo se usa para preferencias visuales (tema), no para datos de negocio.
 
-## Exportar / importar JSON
+## Branding (logo, favicon, iconos)
 
-Desde `Ajustes` (`/settings`):
+Coloca tus logos en:
 
-- `Exportar plan.json`: descarga el plan actual.
-- `Exportar selections.json`: descarga el progreso/selecciones actuales.
-- `Importar selections.json`: carga un archivo JSON y valida `version` + estructura antes de guardar.
+- `public/brand/logo-transparent.png`
+- `public/brand/logo-bg.png`
 
 ## Design System (UI)
 
-Tokens base definidos en `app/globals.css`:
-
-- `--primary-start` / `--primary-end`: gradiente principal.
-- `--surface` / `--surface-soft`: superficies de cards y paneles.
-- `--foreground` / `--muted`: jerarquia de texto.
-- `--border`: bordes y separadores.
-- `--success`, `--warning`, `--error`: estados.
-- `--radius-card`, `--radius-pill`: radios reutilizables.
-- `--shadow-soft`: sombra estandar.
-
-Componentes base:
-
-- `components/Card.tsx`: contenedor visual principal.
-- `components/BottomNav.tsx`: navegacion fija inferior con estado activo.
-- `components/BottomSheet.tsx`: modal deslizante inferior.
-- `components/EmptyState.tsx`: estado vacio con CTA opcional.
-- `components/Toast.tsx`: feedback simple info/success/error.
+Tokens base en `app/globals.css` y componentes en `components/` (`Card`, `BottomNav`, `BottomSheet`, `EmptyState`, `Toast`).

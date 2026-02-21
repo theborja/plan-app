@@ -1,26 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
 import Toast from "@/components/Toast";
+import { fetchJson } from "@/lib/clientApi";
 import { isAdminUser } from "@/lib/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { parseWorkbookToPlanV1, type ParseWorkbookDebug } from "@/lib/parsers/parseWorkbookPlan";
-import { defaultSelectionsV1, savePlanV1, saveSelectionsV1 } from "@/lib/storage";
 import type { MealType, PlanV1 } from "@/lib/types";
 
-const MEAL_TYPES: MealType[] = [
-  "DESAYUNO",
-  "ALMUERZO",
-  "COMIDA",
-  "MERIENDA",
-  "CENA",
-  "POSTRE",
-];
+const MEAL_TYPES: MealType[] = ["DESAYUNO", "ALMUERZO", "COMIDA", "MERIENDA", "CENA", "POSTRE"];
+
+type AssignableUser = { id: string; email: string; name: string; role: "ADMIN" | "USER" };
 
 export default function ImportPage() {
   const router = useRouter();
@@ -28,10 +23,31 @@ export default function ImportPage() {
   const [parsedPlan, setParsedPlan] = useState<PlanV1 | null>(null);
   const [debugInfo, setDebugInfo] = useState<ParseWorkbookDebug | null>(null);
   const [sourceName, setSourceName] = useState<string>("");
-  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(
-    null,
-  );
+  const [targetUserId, setTargetUserId] = useState("");
+  const [users, setUsers] = useState<AssignableUser[]>([]);
+  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+
+  const canAccess = user ? isAdminUser(user) : false;
+
+  useEffect(() => {
+    if (!isReady || !canAccess) return;
+    void (async () => {
+      try {
+        const data = await fetchJson<{ ok: true; users: AssignableUser[] }>("/api/users/assignable");
+        setUsers(data.users);
+        if (data.users.length > 0) {
+          setTargetUserId(data.users[0].id);
+        }
+      } catch (error) {
+        setToast({
+          message: error instanceof Error ? error.message : "No se pudieron cargar usuarios.",
+          tone: "error",
+        });
+      }
+    })();
+  }, [isReady, canAccess]);
 
   const nutritionRows = useMemo(() => {
     if (!parsedPlan) return [];
@@ -39,18 +55,12 @@ export default function ImportPage() {
       key: `W${day.weekIndex}-${day.dayOfWeek}`,
       weekIndex: day.weekIndex,
       dayOfWeek: day.dayOfWeek,
-      counts: MEAL_TYPES.map((mealType) => ({
-        mealType,
-        count: day.meals[mealType]?.length ?? 0,
-      })),
+      counts: MEAL_TYPES.map((mealType) => ({ mealType, count: day.meals[mealType]?.length ?? 0 })),
     }));
   }, [parsedPlan]);
 
-  const canAccess = user ? isAdminUser(user) : false;
-
   async function handleFileChange(file: File | null) {
     if (!file) return;
-
     setIsBusy(true);
     setToast({ message: "Parseando archivo...", tone: "info" });
 
@@ -63,43 +73,55 @@ export default function ImportPage() {
       setParsedPlan(plan);
       setDebugInfo(debug);
       setSourceName(file.name);
+      setFileToUpload(file);
       setToast({ message: "Archivo parseado correctamente.", tone: "success" });
     } catch (error) {
       const text = error instanceof Error ? error.message : "Error desconocido";
       setParsedPlan(null);
       setDebugInfo(null);
+      setFileToUpload(null);
       setToast({ message: `Error al parsear: ${text}`, tone: "error" });
     } finally {
       setIsBusy(false);
     }
   }
 
-  function handleSaveReplace() {
-    if (!parsedPlan) return;
+  async function handleSaveReplace() {
+    if (!fileToUpload || !targetUserId) return;
 
-    savePlanV1(parsedPlan);
+    setIsBusy(true);
+    setToast({ message: "Importando en BBDD...", tone: "info" });
 
-    // Politica simple para evitar referencias huerfanas de opciones/ejercicios
-    // cuando cambia completamente la estructura del plan importado.
-    saveSelectionsV1(defaultSelectionsV1());
+    try {
+      const form = new FormData();
+      form.set("file", fileToUpload);
+      form.set("targetUserId", targetUserId);
 
-    setToast({ message: "Plan guardado y reemplazado.", tone: "success" });
-    setTimeout(() => {
-      if (typeof window !== "undefined" && window.history.length > 1) {
-        router.back();
-      } else {
-        router.push("/settings");
+      const response = await fetch("/api/plans/import", {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { message?: string };
+      if (!response.ok) {
+        throw new Error(payload.message ?? "No se pudo importar el plan.");
       }
-    }, 250);
+
+      setToast({ message: "Plan importado y asignado correctamente.", tone: "success" });
+      setTimeout(() => router.push("/settings"), 350);
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : "No se pudo importar el plan.",
+        tone: "error",
+      });
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   if (isReady && canAccess === false) {
-    return (
-      <EmptyState
-        title="Sin acceso"
-        description="Solo el usuario admin puede entrar en Importar."
-      />
-    );
+    return <EmptyState title="Sin acceso" description="Solo el usuario admin puede entrar en Importar." />;
   }
 
   if (!isReady) {
@@ -112,32 +134,32 @@ export default function ImportPage() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[18px] border border-[color:color-mix(in_oklab,var(--primary-end)_48%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_80%,var(--primary-end)_20%)] p-4 shadow-[0_14px_28px_rgba(108,93,211,0.16)] animate-card">
-        <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            aria-label="Volver"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--progress-chip-bg)] text-[var(--progress-chip-fg)]"
-            onClick={() => {
-              if (typeof window !== "undefined" && window.history.length > 1) {
-                router.back();
-              } else {
-                router.push("/settings");
-              }
-            }}
-          >
-            {"<"}
-          </button>
-          <h2 className="text-base font-semibold text-[var(--foreground)]">Importar plan</h2>
-          <span className="h-8 w-8" />
-        </div>
-      </section>
+      <button
+        type="button"
+        className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm font-semibold text-[var(--foreground)]"
+        onClick={() => router.push("/settings")}
+      >
+        {"<"} Volver
+      </button>
 
-      <Card title="Importar Plan" subtitle="Sube un archivo y revisa el resumen antes de reemplazar">
+      <Card title="Importar plan" subtitle="Sube Excel, elige usuario destino y guarda en BBDD">
         <div className="space-y-3">
-          <p className="text-sm text-[var(--muted)]">
-            Sube un archivo .xlsx y se parsearan solo las hojas PLAN NUTRICIONAL y PLAN ENTRENAMIENTO.
-          </p>
+          <label className="block text-sm text-[var(--muted)]" htmlFor="target-user">
+            Usuario destino
+          </label>
+          <select
+            id="target-user"
+            value={targetUserId}
+            onChange={(event) => setTargetUserId(event.target.value)}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+            disabled={users.length === 0 || isBusy}
+          >
+            {users.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.email} ({item.role})
+              </option>
+            ))}
+          </select>
 
           <input
             type="file"
@@ -150,17 +172,11 @@ export default function ImportPage() {
           <button
             type="button"
             className="rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
-            disabled={!parsedPlan || isBusy}
-            onClick={handleSaveReplace}
+            disabled={!parsedPlan || !targetUserId || isBusy}
+            onClick={() => void handleSaveReplace()}
           >
-            Guardar y reemplazar plan
+            Guardar y asignar plan
           </button>
-
-          <Toast
-            message={toast?.message ?? null}
-            tone={toast?.tone ?? "info"}
-            onClose={() => setToast(null)}
-          />
         </div>
       </Card>
 
@@ -170,10 +186,7 @@ export default function ImportPage() {
             <Skeleton lines={5} />
           </Card>
         ) : (
-          <EmptyState
-            title="Sin preview"
-            description="Carga un Excel para ver el resumen antes de guardar."
-          />
+          <EmptyState title="Sin preview" description="Carga un Excel para ver el resumen antes de guardar." />
         )
       ) : (
         <>
@@ -202,9 +215,7 @@ export default function ImportPage() {
               {parsedPlan.training.days.map((day) => (
                 <li key={day.dayIndex} className="rounded-lg border border-[var(--border)] bg-white px-3 py-2">
                   <span className="font-semibold text-[var(--foreground)]">{day.label}</span>
-                  <span className="ml-2 text-[var(--muted)]">
-                    ({day.exercises.length} ejercicios)
-                  </span>
+                  <span className="ml-2 text-[var(--muted)]">({day.exercises.length} ejercicios)</span>
                 </li>
               ))}
             </ul>
@@ -212,43 +223,22 @@ export default function ImportPage() {
 
           <Card title="Debug parser" subtitle="Informacion tecnica del parseo">
             <details>
-              <summary className="cursor-pointer text-sm font-semibold text-[var(--foreground)]">
-                Ver detalles de deteccion
-              </summary>
+              <summary className="cursor-pointer text-sm font-semibold text-[var(--foreground)]">Ver detalles de deteccion</summary>
               <div className="mt-3 space-y-3 text-sm text-[var(--muted)]">
+                <p>Fila encabezados dias: {debugInfo?.nutrition?.headerRowIndex ?? "N/A"}</p>
                 <p>
-                  Fila encabezados dias:{" "}
-                  {debugInfo?.nutrition?.headerRowIndex !== undefined
-                    ? debugInfo.nutrition.headerRowIndex
-                    : "N/A"}
+                  Columnas week1: {debugInfo?.nutrition?.week1Columns ? JSON.stringify(debugInfo.nutrition.week1Columns) : "N/A"}
                 </p>
                 <p>
-                  Columnas week1:{" "}
-                  {debugInfo?.nutrition?.week1Columns
-                    ? JSON.stringify(debugInfo.nutrition.week1Columns)
-                    : "N/A"}
+                  Columnas week2: {debugInfo?.nutrition?.week2Columns ? JSON.stringify(debugInfo.nutrition.week2Columns) : "N/A"}
                 </p>
-                <p>
-                  Columnas week2:{" "}
-                  {debugInfo?.nutrition?.week2Columns
-                    ? JSON.stringify(debugInfo.nutrition.week2Columns)
-                    : "N/A"}
-                </p>
-                <div>
-                  <p className="font-semibold text-[var(--foreground)]">Bloques de comida:</p>
-                  <ul className="mt-1 space-y-1">
-                    {debugInfo?.nutrition?.mealBlocks?.map((block) => (
-                      <li key={`${block.mealType}-${block.startRow}`}>
-                        {block.mealType}: filas {block.startRow} a {block.endRow}
-                      </li>
-                    )) ?? <li>N/A</li>}
-                  </ul>
-                </div>
               </div>
             </details>
           </Card>
         </>
       )}
+
+      <Toast message={toast?.message ?? null} tone={toast?.tone ?? "info"} onClose={() => setToast(null)} />
     </div>
   );
 }
