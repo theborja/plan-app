@@ -184,7 +184,7 @@ export default function TodayPage() {
             <p className="text-sm font-semibold text-[var(--foreground)]">
               Opcion {Math.min(currentOptionIndex, Math.max(0, dailyMenuOptions.length - 1)) + 1}
             </p>
-            <ul className="mt-2 h-36 space-y-2 overflow-y-auto text-xs text-zinc-700">
+            <ul className="mt-2 space-y-2 text-xs text-zinc-700">
               {selectedDailyMenuOption.meals.map((meal) => (
                 <li key={meal.mealType}>
                   <p className="font-medium text-[var(--foreground)]">{meal.mealType}</p>

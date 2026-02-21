@@ -7,6 +7,7 @@ import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
 import Toast from "@/components/Toast";
+import { downloadJson, readJsonFile } from "@/lib/jsonFile";
 import { isAdminUser, logoutLocal } from "@/lib/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchJson, postJson } from "@/lib/clientApi";
@@ -40,6 +41,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [history, setHistory] = useState<PlanHistoryItem[]>([]);
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
+  const [isBackupBusy, setIsBackupBusy] = useState(false);
 
   const canAccess = user ? isAdminUser(user) : false;
 
@@ -91,6 +93,61 @@ export default function SettingsPage() {
     }
 
     void saveSettings({ ...settings, trainingDays: nextDays });
+  }
+
+  async function exportWorkoutBackup() {
+    setIsBackupBusy(true);
+    try {
+      const data = await fetchJson<{
+        ok: true;
+        backup: {
+          version: 1;
+          source: "workout_backup_v1";
+          exportedAtISO: string;
+          entries: unknown[];
+        };
+      }>("/api/settings/workout-backup");
+      const today = new Date().toISOString().slice(0, 10);
+      downloadJson(`workout-backup-${today}.json`, data.backup);
+      setToast({ message: "Backup JSON exportado.", tone: "success" });
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : "No se pudo exportar el backup.",
+        tone: "error",
+      });
+    } finally {
+      setIsBackupBusy(false);
+    }
+  }
+
+  async function importWorkoutBackup(file: File | null) {
+    if (!file) return;
+    setIsBackupBusy(true);
+    try {
+      const backup = await readJsonFile(file);
+      const response = await postJson<{
+        ok: true;
+        report: {
+          totalEntries: number;
+          insertedDays: number;
+          skippedExistingDays: number;
+          skippedInvalidDays: number;
+          insertedSetLogs: number;
+        };
+      }>("/api/settings/workout-backup", { backup });
+      const r = response.report;
+      setToast({
+        message: `Importado. Dias nuevos: ${r.insertedDays}/${r.totalEntries}. Saltados existentes: ${r.skippedExistingDays}. Sets insertados: ${r.insertedSetLogs}.`,
+        tone: "success",
+      });
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : "No se pudo importar el backup.",
+        tone: "error",
+      });
+    } finally {
+      setIsBackupBusy(false);
+    }
   }
 
   if (isReady && canAccess === false) {
@@ -175,6 +232,32 @@ export default function SettingsPage() {
             ))}
           </ul>
         )}
+      </Card>
+
+      <Card title="Backup de ejercicios" subtitle="Exportar/importar entrenos en JSON">
+        <div className="space-y-3">
+          <button
+            type="button"
+            className="w-full rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            onClick={() => void exportWorkoutBackup()}
+            disabled={isBackupBusy}
+          >
+            Exportar JSON de ejercicios
+          </button>
+          <label className="block rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm">
+            <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Importar JSON backup</span>
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="mt-2 block w-full text-sm"
+              disabled={isBackupBusy}
+              onChange={(event) => void importWorkoutBackup(event.target.files?.[0] ?? null)}
+            />
+          </label>
+          <p className="text-xs text-[var(--muted)]">
+            Restauracion incremental: si el dia ya existe, no se sobrescribe. Solo se insertan dias sin registro.
+          </p>
+        </div>
       </Card>
 
       <Card title="Sesion">
