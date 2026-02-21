@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   );
 
   if (!nutritionDay) {
-    return NextResponse.json({ ok: true, day: null, selection: null });
+    return NextResponse.json({ ok: true, day: null, selection: null, menuOptions: [] });
   }
 
   const fullDay = activePlan.nutritionDays.find((item) => item.id === nutritionDay.id)!;
@@ -56,6 +56,46 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const menuOptions = activePlan.nutritionDays
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .flatMap((day) => {
+      const byMeal: Record<MealType, Array<{ id: string; title: string; lines: string[] }>> = {
+        DESAYUNO: [],
+        ALMUERZO: [],
+        COMIDA: [],
+        MERIENDA: [],
+        CENA: [],
+        POSTRE: [],
+      };
+
+      for (const option of day.mealOptions) {
+        byMeal[option.mealType].push({
+          id: option.id,
+          title: option.title,
+          lines: option.lines.map((line) => line.content),
+        });
+      }
+
+      const maxOptions = Math.max(...Object.values(byMeal).map((items) => items.length), 0);
+      return Array.from({ length: maxOptions }, (_, idx) => {
+        const meals = (Object.entries(byMeal) as Array<[MealType, Array<{ id: string; title: string; lines: string[] }>]>)
+          .map(([mealType, options]) => ({ mealType, option: options[idx] }))
+          .filter((entry): entry is { mealType: MealType; option: { id: string; title: string; lines: string[] } } => !!entry.option)
+          .map((entry) => ({ mealType: entry.mealType, lines: entry.option.lines }));
+
+        const representativeOption = meals.length > 0
+          ? (Object.values(byMeal).map((options) => options[idx]).find(Boolean) ?? null)
+          : null;
+
+        return {
+          optionId: representativeOption?.id ?? `${day.id}-${idx + 1}`,
+          optionLabel: `W${day.weekIndex}-${day.dayOfWeek} · Opcion ${idx + 1}`,
+          meals,
+        };
+      });
+    });
+
   return NextResponse.json({
     ok: true,
     day: {
@@ -72,5 +112,6 @@ export async function GET(request: NextRequest) {
           updatedAt: selection.updatedAt,
         }
       : null,
+    menuOptions,
   });
 }

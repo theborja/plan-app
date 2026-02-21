@@ -177,6 +177,8 @@ export default function ImportPage() {
           >
             Guardar y asignar plan
           </button>
+
+          <Toast message={toast?.message ?? null} tone={toast?.tone ?? "info"} onClose={() => setToast(null)} />
         </div>
       </Card>
 
@@ -237,8 +239,6 @@ export default function ImportPage() {
           </Card>
         </>
       )}
-
-      <Toast message={toast?.message ?? null} tone={toast?.tone ?? "info"} onClose={() => setToast(null)} />
     </div>
   );
 }

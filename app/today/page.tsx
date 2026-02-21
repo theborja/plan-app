@@ -13,6 +13,11 @@ type MealType = "DESAYUNO" | "ALMUERZO" | "COMIDA" | "MERIENDA" | "CENA" | "POST
 
 type DayPayload = {
   noPlan?: boolean;
+  menuOptions?: Array<{
+    optionId: string;
+    optionLabel: string;
+    meals: Array<{ mealType: MealType; lines: string[] }>;
+  }>;
   day: {
     id: string;
     weekIndex: number;
@@ -69,6 +74,10 @@ export default function TodayPage() {
   }, [isoDate]);
 
   const dailyMenuOptions = useMemo(() => {
+    if (nutrition?.menuOptions && nutrition.menuOptions.length > 0) {
+      return nutrition.menuOptions;
+    }
+
     if (!nutrition?.day) return [];
     const byIndex = new Map<number, DailyMenuOption>();
 
@@ -172,8 +181,10 @@ export default function TodayPage() {
       <Card title="Menu completo del dia">
         {selectedDailyMenuOption ? (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3">
-            <p className="text-sm font-semibold text-[var(--foreground)]">{selectedDailyMenuOption.optionLabel}</p>
-            <ul className="mt-2 space-y-2 text-xs text-zinc-700">
+            <p className="text-sm font-semibold text-[var(--foreground)]">
+              Opcion {Math.min(currentOptionIndex, Math.max(0, dailyMenuOptions.length - 1)) + 1}
+            </p>
+            <ul className="mt-2 h-36 space-y-2 overflow-y-auto text-xs text-zinc-700">
               {selectedDailyMenuOption.meals.map((meal) => (
                 <li key={meal.mealType}>
                   <p className="font-medium text-[var(--foreground)]">{meal.mealType}</p>
@@ -218,7 +229,7 @@ export default function TodayPage() {
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
               <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-soft)]" onClick={() => setCurrentOptionIndex((prev) => (prev === 0 ? dailyMenuOptions.length - 1 : prev - 1))}>{"<"}</button>
-              <div className="text-center text-sm font-semibold">{currentOption.optionLabel}</div>
+              <div className="text-center text-sm font-semibold">Opcion {currentOptionIndex + 1}</div>
               <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-soft)]" onClick={() => setCurrentOptionIndex((prev) => (prev + 1) % dailyMenuOptions.length)}>{">"}</button>
             </div>
 

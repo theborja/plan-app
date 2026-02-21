@@ -6,6 +6,7 @@ type DayColumnMatch = { colIndex: number; dayOfWeek: DayOfWeek };
 type WeekColumnMap = Record<DayOfWeek, number>;
 type MealBlock = { mealType: MealType; startRow: number; endRow: number };
 type MainMealType = Exclude<MealType, "POSTRE">;
+type MealsByType = Record<MealType, MenuOption[]>;
 
 export type ParsePlanNutricionalDebug = {
   headerRowIndex?: number;
@@ -322,6 +323,33 @@ function buildMenuOptions(
   });
 }
 
+function normalizeDailyMeals(meals: MealsByType, weekIndex: number, dayOfWeek: DayOfWeek): void {
+  const optionCount = Math.max(
+    meals.DESAYUNO.length,
+    meals.ALMUERZO.length,
+    meals.COMIDA.length,
+    meals.MERIENDA.length,
+    meals.CENA.length,
+    1,
+  );
+
+  const mealTypes: MealType[] = ["DESAYUNO", "ALMUERZO", "COMIDA", "MERIENDA", "CENA", "POSTRE"];
+  for (const mealType of mealTypes) {
+    const current = meals[mealType];
+    if (current.length === 0 || current.length >= optionCount) continue;
+
+    const source = current[current.length - 1];
+    for (let index = current.length; index < optionCount; index += 1) {
+      const optionNumber = index + 1;
+      current.push({
+        optionId: `${weekIndex}-${dayOfWeek}-${mealType}-${optionNumber}`,
+        title: source.title || `Opcion ${optionNumber}`,
+        lines: [...source.lines],
+      });
+    }
+  }
+}
+
 export function parsePlanNutricional(
   sheetMatrix: unknown[][],
   debug?: ParsePlanNutricionalDebug,
@@ -375,6 +403,40 @@ export function parsePlanNutricional(
           continue;
         }
 
+        if (block.mealType === "POSTRE" && isMainMealType(targetMealType)) {
+          const dessertOptions = buildMenuOptions(
+            cellText,
+            weekIndex,
+            dayOfWeek,
+            targetMealType,
+            0,
+          );
+
+          if (dessertOptions.length === 0) {
+            continue;
+          }
+
+          if (meals[targetMealType].length === 0) {
+            meals[targetMealType].push(...dessertOptions);
+            continue;
+          }
+
+          dessertOptions.forEach((dessert, index) => {
+            if (meals[targetMealType][index]) {
+              meals[targetMealType][index].lines.push(...dessert.lines);
+            } else {
+              const optionNumber = meals[targetMealType].length + 1;
+              meals[targetMealType].push({
+                ...dessert,
+                optionId: `${weekIndex}-${dayOfWeek}-${targetMealType}-${optionNumber}`,
+                title: dessert.title || `Opcion ${optionNumber}`,
+              });
+            }
+          });
+
+          continue;
+        }
+
         const options = buildMenuOptions(
           cellText,
           weekIndex,
@@ -388,7 +450,10 @@ export function parsePlanNutricional(
       days.push({
         weekIndex,
         dayOfWeek,
-        meals,
+        meals: (() => {
+          normalizeDailyMeals(meals, weekIndex, dayOfWeek);
+          return meals;
+        })(),
       });
     }
   }
