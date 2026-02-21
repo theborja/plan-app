@@ -10,7 +10,9 @@
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "node prisma/seed.mjs"
+    "db:seed": "node prisma/seed.mjs",
+    "db:migrate": "prisma migrate deploy",
+    "db:clean-domain": "prisma db execute --file prisma/clean-domain.sql --schema prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.16.0",
