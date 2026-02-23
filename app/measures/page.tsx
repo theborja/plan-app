@@ -236,6 +236,12 @@ export default function MeasuresPage() {
 
   const metricDef = METRICS.find((item) => item.key === activeMetric) ?? METRICS[0];
   const activeMetricIndex = Math.max(0, METRICS.findIndex((item) => item.key === activeMetric));
+  const currentWeekStartIso = getWeekStartIso(getLocalISODate());
+  const isCurrentWeekSelected = quickWeekIso === currentWeekStartIso;
+  const previousWeekRow = useMemo(
+    () => rows.find((item) => item.weekStartISO === addDays(currentWeekStartIso, -7)) ?? null,
+    [rows, currentWeekStartIso],
+  );
 
   const points = useMemo(() => {
     return rows
@@ -290,9 +296,32 @@ export default function MeasuresPage() {
     return { weekIso: point.weekIso, value: point.value, delta: prev ? point.value - prev.value : null };
   });
 
+  const currentWeekRow = rows.find((item) => item.weekStartISO === quickWeekIso) ?? null;
+  const hasAllMeasuresForSelectedWeek =
+    currentWeekRow !== null &&
+    currentWeekRow.weightKg != null &&
+    currentWeekRow.neckCm != null &&
+    currentWeekRow.armCm != null &&
+    currentWeekRow.waistCm != null &&
+    currentWeekRow.abdomenCm != null &&
+    currentWeekRow.hipCm != null &&
+    currentWeekRow.thighCm != null;
+
   if (noPlan) {
     return <NoPlanState />;
   }
+
+  const weightPlaceholder =
+    isCurrentWeekSelected && previousWeekRow?.weightKg != null ? String(previousWeekRow.weightKg) : undefined;
+
+  const quickFieldPlaceholders: Record<Exclude<MetricKey, "weightKg">, string | undefined> = {
+    neckCm: isCurrentWeekSelected && previousWeekRow?.neckCm != null ? String(previousWeekRow.neckCm) : undefined,
+    armCm: isCurrentWeekSelected && previousWeekRow?.armCm != null ? String(previousWeekRow.armCm) : undefined,
+    waistCm: isCurrentWeekSelected && previousWeekRow?.waistCm != null ? String(previousWeekRow.waistCm) : undefined,
+    abdomenCm: isCurrentWeekSelected && previousWeekRow?.abdomenCm != null ? String(previousWeekRow.abdomenCm) : undefined,
+    hipCm: isCurrentWeekSelected && previousWeekRow?.hipCm != null ? String(previousWeekRow.hipCm) : undefined,
+    thighCm: isCurrentWeekSelected && previousWeekRow?.thighCm != null ? String(previousWeekRow.thighCm) : undefined,
+  };
 
   return (
     <div className="space-y-4">
@@ -311,7 +340,7 @@ export default function MeasuresPage() {
               </label>
               <label className="block rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
                 <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Peso (kg)</span>
-                <input type="text" inputMode="decimal" value={quickWeight} onChange={(event) => setQuickWeight(event.target.value)} className="mt-1 w-full rounded-xl bg-transparent px-2 py-1 text-base font-semibold outline-none" />
+                <input type="text" inputMode="decimal" value={quickWeight} placeholder={weightPlaceholder} onChange={(event) => setQuickWeight(event.target.value)} className="mt-1 w-full rounded-xl bg-transparent px-2 py-1 text-base font-semibold outline-none placeholder:text-[color:color-mix(in_oklab,var(--muted)_39%,transparent)]" />
               </label>
             </div>
           </div>
@@ -320,7 +349,7 @@ export default function MeasuresPage() {
               {QUICK_FIELDS.map((field) => (
                 <label key={field.key} className="block rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
                   <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{field.label}</span>
-                  <input type="text" inputMode="decimal" value={quickValues[field.key]} onChange={(event) => setQuickValues((prev) => ({ ...prev, [field.key]: event.target.value }))} className="mt-1 w-full rounded-xl bg-transparent px-2 py-1 text-base font-semibold outline-none" />
+                  <input type="text" inputMode="decimal" value={quickValues[field.key]} placeholder={quickFieldPlaceholders[field.key]} onChange={(event) => setQuickValues((prev) => ({ ...prev, [field.key]: event.target.value }))} className="mt-1 w-full rounded-xl bg-transparent px-2 py-1 text-base font-semibold outline-none placeholder:text-[color:color-mix(in_oklab,var(--muted)_39%,transparent)]" />
                 </label>
               ))}
             </div>
@@ -328,7 +357,9 @@ export default function MeasuresPage() {
               <MuscleAvatar className="h-full min-h-[18rem]" />
             </div>
           </div>
-          <button type="button" onClick={() => void saveQuickMeasures()} className="w-full rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white">Guardar medidas</button>
+          <button type="button" onClick={() => void saveQuickMeasures()} className="w-full cursor-pointer rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white">{
+            hasAllMeasuresForSelectedWeek ? "Modificar medidas" : "Guardar medidas"
+          }</button>
         </div>
       </Card>
 
