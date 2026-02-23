@@ -185,28 +185,12 @@ export default function WorkoutPage() {
   const nextTraining = trainingWeekdays.length > 0 ? getNextTrainingDay(selectedIsoDate, trainingWeekdays) : null;
 
   const dayPicker = (
-    <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--muted)]"
-        onClick={() => setDateWithGuard(addDays(selectedIsoDate, -1))}
-      >
-        Dia anterior
-      </button>
-      <button
-        type="button"
-        className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--muted)]"
-        onClick={() => setDateWithGuard(addDays(selectedIsoDate, 1))}
-      >
-        Dia siguiente
-      </button>
-      <input
-        type="date"
-        value={selectedIsoDate}
-        onChange={(e) => setDateWithGuard(e.target.value)}
-        className="ml-auto w-[9.4rem] min-w-[9.4rem] shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] font-semibold text-[var(--foreground)] sm:w-auto sm:min-w-[10rem] sm:px-3 sm:text-xs"
-      />
-    </div>
+    <DayPicker
+      selectedIsoDate={selectedIsoDate}
+      onChangeDate={setDateWithGuard}
+      onPrev={() => setDateWithGuard(addDays(selectedIsoDate, -1))}
+      onNext={() => setDateWithGuard(addDays(selectedIsoDate, 1))}
+    />
   );
 
   const highlightedDayPicker = (
@@ -349,6 +333,39 @@ export default function WorkoutPage() {
           <p className="text-sm text-[var(--muted)]">No hay notas previas.</p>
         )}
       </BottomSheet>
+    </div>
+  );
+}
+
+function DayPicker({
+  selectedIsoDate,
+  onChangeDate,
+  onPrev,
+  onNext,
+}: {
+  selectedIsoDate: string;
+  onChangeDate: (value: string) => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-center">
+        <input
+          type="date"
+          value={selectedIsoDate}
+          onChange={(e) => onChangeDate(e.target.value)}
+          className="block w-[12.5rem] rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-center text-xs font-semibold text-[var(--foreground)]"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--muted)]" onClick={onPrev}>
+          Dia anterior
+        </button>
+        <button type="button" className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--muted)]" onClick={onNext}>
+          Dia siguiente
+        </button>
+      </div>
     </div>
   );
 }

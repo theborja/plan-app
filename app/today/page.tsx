@@ -49,8 +49,51 @@ type DailyMenuOption = {
 
 const MEAL_TYPES: MealType[] = ["DESAYUNO", "ALMUERZO", "COMIDA", "MERIENDA", "CENA", "POSTRE"];
 
+function addDays(isoDate: string, amount: number): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(year, (month ?? 1) - 1, day ?? 1);
+  date.setDate(date.getDate() + amount);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function DayPicker({
+  selectedIsoDate,
+  onChangeDate,
+  onPrev,
+  onNext,
+}: {
+  selectedIsoDate: string;
+  onChangeDate: (value: string) => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-center">
+        <input
+          type="date"
+          value={selectedIsoDate}
+          onChange={(e) => onChangeDate(e.target.value)}
+          className="block w-[12.5rem] rounded-xl border border-[color:color-mix(in_oklab,var(--primary-end)_45%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] px-3 py-1.5 text-center text-xs font-semibold text-[var(--foreground)]"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" className="rounded-xl border border-[color:color-mix(in_oklab,var(--primary-end)_45%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]" onClick={onPrev}>
+          Dia anterior
+        </button>
+        <button type="button" className="rounded-xl border border-[color:color-mix(in_oklab,var(--primary-end)_45%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]" onClick={onNext}>
+          Dia siguiente
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function TodayPage() {
-  const isoDate = getLocalISODate();
+  const [selectedIsoDate, setSelectedIsoDate] = useState(getLocalISODate());
   const [isLoading, setIsLoading] = useState(true);
   const [nutrition, setNutrition] = useState<DayPayload | null>(null);
   const [workout, setWorkout] = useState<WorkoutPayload | null>(null);
@@ -62,8 +105,8 @@ export default function TodayPage() {
       setIsLoading(true);
       try {
         const [nutritionData, workoutData] = await Promise.all([
-          fetchJson<DayPayload>(`/api/nutrition/day?date=${isoDate}`),
-          fetchJson<WorkoutPayload>(`/api/workout/day?date=${isoDate}`),
+          fetchJson<DayPayload>(`/api/nutrition/day?date=${selectedIsoDate}`),
+          fetchJson<WorkoutPayload>(`/api/workout/day?date=${selectedIsoDate}`),
         ]);
         setNutrition(nutritionData);
         setWorkout(workoutData);
@@ -71,7 +114,7 @@ export default function TodayPage() {
         setIsLoading(false);
       }
     })();
-  }, [isoDate]);
+  }, [selectedIsoDate]);
 
   const dailyMenuOptions = useMemo(() => {
     if (nutrition?.menuOptions && nutrition.menuOptions.length > 0) {
@@ -107,13 +150,13 @@ export default function TodayPage() {
     setCurrentOptionIndex(idx >= 0 ? idx : 0);
   }, [dailyMenuOptions, selectedDailyMenuOptionId]);
 
-  async function saveSelection(patch: { selectedDayOptionId?: string; done?: boolean; note?: string }) {
+  async function saveSelection(patch: { selectedDayOptionId?: string; done?: boolean }) {
     const current = nutrition?.selection;
     const payload = {
-      dateISO: isoDate,
+      dateISO: selectedIsoDate,
       selectedDayOptionId: patch.selectedDayOptionId ?? current?.selectedDayOptionId ?? null,
       done: patch.done ?? current?.done ?? false,
-      note: patch.note ?? current?.note ?? "",
+      note: current?.note ?? "",
     };
 
     await postJson("/api/nutrition/selection", payload);
@@ -160,7 +203,15 @@ export default function TodayPage() {
       <section className="rounded-[var(--radius-card)] border border-[color:color-mix(in_oklab,var(--primary-end)_50%,var(--border))] bg-[color:color-mix(in_oklab,var(--surface)_82%,var(--primary-end)_18%)] p-4 shadow-[0_10px_24px_rgba(108,93,211,0.16)] animate-card">
         <h2 className="text-base font-semibold text-[var(--foreground)]">Resumen de hoy</h2>
         <div className="mt-3 space-y-3 text-sm text-[var(--muted)]">
-          <p className="font-semibold text-[var(--foreground)]">{formatDateShortSpanish(isoDate)}</p>
+          <p className="font-semibold text-[var(--foreground)]">{formatDateShortSpanish(selectedIsoDate)}</p>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2">
+            <DayPicker
+              selectedIsoDate={selectedIsoDate}
+              onChangeDate={setSelectedIsoDate}
+              onPrev={() => setSelectedIsoDate((prev) => addDays(prev, -1))}
+              onNext={() => setSelectedIsoDate((prev) => addDays(prev, 1))}
+            />
+          </div>
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2">
             <button type="button" className="flex w-full items-center justify-between" onClick={() => setIsSheetOpen(true)}>
               <p className="font-semibold text-[var(--foreground)]">Menu</p>
@@ -213,13 +264,6 @@ export default function TodayPage() {
             {nutrition.selection?.done ? "Hecho" : "Marcar hecho"}
           </button>
         </div>
-
-        <textarea
-          className="mt-3 min-h-20 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-          placeholder="Nota del menu diario"
-          value={nutrition.selection?.note ?? ""}
-          onChange={(event) => void saveSelection({ note: event.target.value })}
-        />
       </Card>
 
       <BottomSheet open={isSheetOpen} title="Elegir menu diario" onClose={() => setIsSheetOpen(false)}>
