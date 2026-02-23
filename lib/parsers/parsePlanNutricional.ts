@@ -6,7 +6,6 @@ type DayColumnMatch = { colIndex: number; dayOfWeek: DayOfWeek };
 type WeekColumnMap = Record<DayOfWeek, number>;
 type MealBlock = { mealType: MealType; startRow: number; endRow: number };
 type MainMealType = Exclude<MealType, "POSTRE">;
-type MealsByType = Record<MealType, MenuOption[]>;
 
 export type ParsePlanNutricionalDebug = {
   headerRowIndex?: number;
@@ -246,7 +245,8 @@ function splitByHeaders(lines: string[]): string[][] {
 function splitByEnumeration(lines: string[]): string[][] {
   const output: string[][] = [];
   let current: string[] = [];
-  const enumRegex = /^(\d+)\s*[\)\.:-]\s*(.*)$/;
+  // Avoid splitting weight ranges like "120-150 gr ..." as if they were option enumerations.
+  const enumRegex = /^(\d{1,2})\s*[\)\.:]\s*(.*)$/;
 
   for (const line of lines) {
     const match = line.match(enumRegex);
@@ -293,7 +293,7 @@ export function splitIntoOptions(text: string): string[][] {
     if (byHeaders.length > 0) return byHeaders;
   }
 
-  const hasEnumerationSeparators = lines.some((line) => /^(\d+)\s*[\)\.:-]\s*/.test(line));
+  const hasEnumerationSeparators = lines.some((line) => /^(\d{1,2})\s*[\)\.:]\s*/.test(line));
   if (hasEnumerationSeparators) {
     const byEnum = splitByEnumeration(lines).map(cleanLines).filter((chunk) => chunk.length > 0);
     if (byEnum.length > 0) return byEnum;
@@ -321,33 +321,6 @@ function buildMenuOptions(
       lines,
     };
   });
-}
-
-function normalizeDailyMeals(meals: MealsByType, weekIndex: number, dayOfWeek: DayOfWeek): void {
-  const optionCount = Math.max(
-    meals.DESAYUNO.length,
-    meals.ALMUERZO.length,
-    meals.COMIDA.length,
-    meals.MERIENDA.length,
-    meals.CENA.length,
-    1,
-  );
-
-  const mealTypes: MealType[] = ["DESAYUNO", "ALMUERZO", "COMIDA", "MERIENDA", "CENA", "POSTRE"];
-  for (const mealType of mealTypes) {
-    const current = meals[mealType];
-    if (current.length === 0 || current.length >= optionCount) continue;
-
-    const source = current[current.length - 1];
-    for (let index = current.length; index < optionCount; index += 1) {
-      const optionNumber = index + 1;
-      current.push({
-        optionId: `${weekIndex}-${dayOfWeek}-${mealType}-${optionNumber}`,
-        title: source.title || `Opcion ${optionNumber}`,
-        lines: [...source.lines],
-      });
-    }
-  }
 }
 
 export function parsePlanNutricional(
@@ -450,10 +423,7 @@ export function parsePlanNutricional(
       days.push({
         weekIndex,
         dayOfWeek,
-        meals: (() => {
-          normalizeDailyMeals(meals, weekIndex, dayOfWeek);
-          return meals;
-        })(),
+        meals,
       });
     }
   }

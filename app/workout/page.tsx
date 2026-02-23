@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import BottomSheet from "@/components/BottomSheet";
 import Card from "@/components/Card";
 import EmptyState from "@/components/EmptyState";
 import NoPlanState from "@/components/NoPlanState";
@@ -32,6 +33,10 @@ type DayPayload = {
   settings: {
     trainingDays: Array<"Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun">;
   };
+  latestSameTrainingNote?: {
+    dateISO: string;
+    note: string;
+  } | null;
 };
 
 type DraftWeights = Record<string, string[]>;
@@ -94,6 +99,7 @@ export default function WorkoutPage() {
   const [isDirty, setIsDirty] = useState(false);
   const [draftNote, setDraftNote] = useState("");
   const [draftWeights, setDraftWeights] = useState<DraftWeights>({});
+  const [isLastNotePopoverOpen, setIsLastNotePopoverOpen] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -105,6 +111,7 @@ export default function WorkoutPage() {
         setDraftNote(draft.note);
         setDraftWeights(draft.weights);
         setIsDirty(false);
+        setIsLastNotePopoverOpen(false);
       } finally {
         setIsLoading(false);
       }
@@ -178,7 +185,7 @@ export default function WorkoutPage() {
   const nextTraining = trainingWeekdays.length > 0 ? getNextTrainingDay(selectedIsoDate, trainingWeekdays) : null;
 
   const dayPicker = (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <button
         type="button"
         className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--muted)]"
@@ -197,7 +204,7 @@ export default function WorkoutPage() {
         type="date"
         value={selectedIsoDate}
         onChange={(e) => setDateWithGuard(e.target.value)}
-        className="ml-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]"
+        className="ml-auto w-[9.4rem] min-w-[9.4rem] shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] font-semibold text-[var(--foreground)] sm:w-auto sm:min-w-[10rem] sm:px-3 sm:text-xs"
       />
     </div>
   );
@@ -247,7 +254,26 @@ export default function WorkoutPage() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-[var(--foreground)]">{data.trainingDay.label}</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">{formatDateShortSpanish(selectedIsoDate)}</p>
+            <div className="mt-2 flex items-center gap-2">
+              <p className="text-sm text-[var(--muted)]">{formatDateShortSpanish(selectedIsoDate)}</p>
+              {data.latestSameTrainingNote ? (
+                <div>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]"
+                    onClick={() => setIsLastNotePopoverOpen((prev) => !prev)}
+                    aria-label="Ver ultima nota de este tipo de entreno"
+                    title="Ver ultima nota"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M8 4h8" />
+                      <path d="M7 3h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" />
+                      <path d="M9 9h6M9 12h6" />
+                    </svg>
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
           <button
             type="button"
@@ -302,6 +328,27 @@ export default function WorkoutPage() {
           onChange={(event) => updateNote(event.target.value)}
         />
       </Card>
+
+      <BottomSheet
+        open={isLastNotePopoverOpen}
+        title="Ultima nota de este entreno"
+        onClose={() => setIsLastNotePopoverOpen(false)}
+      >
+        {data.latestSameTrainingNote ? (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-[var(--foreground)]">
+              {formatDateShortSpanish(data.latestSameTrainingNote.dateISO)}
+            </p>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+              <p className="whitespace-pre-wrap text-sm text-[var(--muted)]">
+                {data.latestSameTrainingNote.note}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--muted)]">No hay notas previas.</p>
+        )}
+      </BottomSheet>
     </div>
   );
 }

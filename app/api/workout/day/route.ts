@@ -42,6 +42,20 @@ export async function GET(request: NextRequest) {
     },
   });
 
+  const latestSameTrainingNote = await prisma.workoutSession.findFirst({
+    where: {
+      userId,
+      trainingDayId: fullDay.id,
+      dateISO: { not: dateISO },
+      note: { not: null },
+    },
+    orderBy: [{ dateISO: "desc" }],
+    select: {
+      dateISO: true,
+      note: true,
+    },
+  });
+
   const setLogsByExerciseId = fullDay.exercises.reduce<Record<string, Array<{ setNumber: number; weightKg: number | null; done: boolean | null; repsDone: number | null }>>>(
     (acc, exercise) => {
       acc[exercise.id] = (session?.setLogs ?? [])
@@ -83,5 +97,12 @@ export async function GET(request: NextRequest) {
       : null,
     settings,
     planId: activePlan.id,
+    latestSameTrainingNote:
+      latestSameTrainingNote?.note && latestSameTrainingNote.note.trim()
+        ? {
+            dateISO: latestSameTrainingNote.dateISO,
+            note: latestSameTrainingNote.note,
+          }
+        : null,
   });
 }
