@@ -33,6 +33,10 @@ type DayPayload = {
   settings: {
     trainingDays: Array<"Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun">;
   };
+  latestSameTrainingWeights?: {
+    dateISO: string;
+    setLogsByExerciseId: Record<string, Array<{ setNumber: number; weightKg: number | null }>>;
+  } | null;
   latestSameTrainingNote?: {
     dateISO: string;
     note: string;
@@ -275,6 +279,11 @@ export default function WorkoutPage() {
       {data.trainingDay.exercises.map((exercise) => {
         const seriesCount = Math.max(1, exercise.sets ?? 1);
         const values = draftWeights[exercise.id] ?? Array.from({ length: seriesCount }, () => "");
+        const latestSetLogs = data.latestSameTrainingWeights?.setLogsByExerciseId[exercise.id] ?? [];
+        const latestWeightPlaceholders = Array.from({ length: seriesCount }, (_, idx) => {
+          const matchingLog = latestSetLogs.find((log) => log.setNumber === idx + 1);
+          return matchingLog?.weightKg != null ? String(matchingLog.weightKg) : undefined;
+        });
 
         return (
           <Card key={exercise.id}>
@@ -291,8 +300,8 @@ export default function WorkoutPage() {
                     key={`${exercise.id}-${idx}`}
                     type="text"
                     inputMode="decimal"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
-                    placeholder={`S${idx + 1}`}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs placeholder:text-[color:color-mix(in_oklab,var(--muted)_39%,transparent)]"
+                    placeholder={latestWeightPlaceholders[idx] ?? `S${idx + 1}`}
                     value={values[idx] ?? ""}
                     onChange={(event) => updateWeight(exercise.id, idx, event.target.value)}
                   />

@@ -56,6 +56,34 @@ export async function GET(request: NextRequest) {
     },
   });
 
+  const latestSameTrainingSessionWithWeights = await prisma.workoutSession.findFirst({
+    where: {
+      userId,
+      trainingDayId: fullDay.id,
+      dateISO: { not: dateISO },
+      setLogs: {
+        some: {
+          weightKg: { not: null },
+        },
+      },
+    },
+    orderBy: [{ dateISO: "desc" }],
+    select: {
+      dateISO: true,
+      setLogs: {
+        where: {
+          weightKg: { not: null },
+        },
+        orderBy: [{ exerciseId: "asc" }, { setNumber: "asc" }],
+        select: {
+          exerciseId: true,
+          setNumber: true,
+          weightKg: true,
+        },
+      },
+    },
+  });
+
   const setLogsByExerciseId = fullDay.exercises.reduce<Record<string, Array<{ setNumber: number; weightKg: number | null; done: boolean | null; repsDone: number | null }>>>(
     (acc, exercise) => {
       acc[exercise.id] = (session?.setLogs ?? [])
@@ -65,6 +93,19 @@ export async function GET(request: NextRequest) {
           weightKg: log.weightKg,
           done: log.done,
           repsDone: log.repsDone,
+        }));
+      return acc;
+    },
+    {},
+  );
+
+  const latestSameTrainingSetLogsByExerciseId = fullDay.exercises.reduce<Record<string, Array<{ setNumber: number; weightKg: number | null }>>>(
+    (acc, exercise) => {
+      acc[exercise.id] = (latestSameTrainingSessionWithWeights?.setLogs ?? [])
+        .filter((log) => log.exerciseId === exercise.id)
+        .map((log) => ({
+          setNumber: log.setNumber,
+          weightKg: log.weightKg,
         }));
       return acc;
     },
@@ -97,6 +138,13 @@ export async function GET(request: NextRequest) {
       : null,
     settings,
     planId: activePlan.id,
+    latestSameTrainingWeights:
+      latestSameTrainingSessionWithWeights
+        ? {
+            dateISO: latestSameTrainingSessionWithWeights.dateISO,
+            setLogsByExerciseId: latestSameTrainingSetLogsByExerciseId,
+          }
+        : null,
     latestSameTrainingNote:
       latestSameTrainingNote?.note && latestSameTrainingNote.note.trim()
         ? {
