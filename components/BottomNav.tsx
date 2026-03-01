@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import type { AuthUser } from "@/lib/auth";
 
 const tabs = [
   { href: "/today", label: "Hoy", icon: "home" },
@@ -10,6 +12,12 @@ const tabs = [
   { href: "/progress", label: "Progreso", icon: "chart" },
   { href: "/measures", label: "Medidas", icon: "measure" },
 ];
+
+function isAneUser(user: AuthUser | null): boolean {
+  const email = user?.email?.trim().toLowerCase() ?? "";
+  const name = user?.name?.trim().toLowerCase() ?? "";
+  return email === "ane" || name === "ane";
+}
 
 function Icon({ name }: { name: string }) {
   const common = "h-4 w-4";
@@ -57,7 +65,11 @@ function Icon({ name }: { name: string }) {
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const visibleTabs = useMemo(() => tabs, []);
+  const { user } = useAuth();
+  const visibleTabs = useMemo(
+    () => (isAneUser(user) ? tabs.filter((tab) => tab.href !== "/measures") : tabs),
+    [user],
+  );
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-[var(--border)] bg-[var(--surface)]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur">

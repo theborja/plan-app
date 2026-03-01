@@ -197,18 +197,24 @@ export default function ImportPage() {
               <p className="font-semibold text-[var(--foreground)]">
                 Archivo: {sourceName} | Dias detectados: {parsedPlan.nutrition.days.length}
               </p>
-              <ul className="space-y-1">
-                {nutritionRows.map((row) => (
-                  <li key={row.key} className="rounded-lg border border-[var(--border)] bg-white px-3 py-2">
-                    <p className="font-semibold text-[var(--foreground)]">
-                      Semana {row.weekIndex} - {row.dayOfWeek}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">
-                      {row.counts.map((item) => `${item.mealType}: ${item.count}`).join(" | ")}
-                    </p>
-                  </li>
-                ))}
-              </ul>
+              {nutritionRows.length === 0 ? (
+                <p className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-xs">
+                  Este archivo no incluye la hoja PLAN NUTRICIONAL. Se importara solo entrenamiento.
+                </p>
+              ) : (
+                <ul className="space-y-1">
+                  {nutritionRows.map((row) => (
+                    <li key={row.key} className="rounded-lg border border-[var(--border)] bg-white px-3 py-2">
+                      <p className="font-semibold text-[var(--foreground)]">
+                        Semana {row.weekIndex} - {row.dayOfWeek}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">
+                        {row.counts.map((item) => `${item.mealType}: ${item.count}`).join(" | ")}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </Card>
 

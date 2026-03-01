@@ -19,7 +19,25 @@ export async function GET(request: NextRequest) {
   const settings = await ensureUserSettings(userId, null);
 
   if (!activePlan) {
-    return NextResponse.json({ ok: true, day: null, selection: null });
+    return NextResponse.json({
+      ok: true,
+      noPlan: true,
+      hasNutritionPlan: false,
+      day: null,
+      selection: null,
+      menuOptions: [],
+    });
+  }
+
+  if (activePlan.nutritionDays.length === 0) {
+    return NextResponse.json({
+      ok: true,
+      noPlan: false,
+      hasNutritionPlan: false,
+      day: null,
+      selection: null,
+      menuOptions: [],
+    });
   }
 
   const cycleWeeks = Math.max(1, Math.max(...activePlan.nutritionDays.map((day) => day.weekIndex), 1));
@@ -31,7 +49,14 @@ export async function GET(request: NextRequest) {
   );
 
   if (!nutritionDay) {
-    return NextResponse.json({ ok: true, day: null, selection: null, menuOptions: [] });
+    return NextResponse.json({
+      ok: true,
+      noPlan: false,
+      hasNutritionPlan: true,
+      day: null,
+      selection: null,
+      menuOptions: [],
+    });
   }
 
   const fullDay = activePlan.nutritionDays.find((item) => item.id === nutritionDay.id)!;
@@ -98,6 +123,8 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    noPlan: false,
+    hasNutritionPlan: true,
     day: {
       id: fullDay.id,
       weekIndex: fullDay.weekIndex,

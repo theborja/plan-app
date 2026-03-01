@@ -13,6 +13,7 @@ type MealType = "DESAYUNO" | "ALMUERZO" | "COMIDA" | "MERIENDA" | "CENA" | "POST
 
 type DayPayload = {
   noPlan?: boolean;
+  hasNutritionPlan?: boolean;
   menuOptions?: Array<{
     optionId: string;
     optionLabel: string;
@@ -32,6 +33,7 @@ type DayPayload = {
 };
 
 type WorkoutPayload = {
+  noPlan?: boolean;
   trainingDay: {
     exercises: Array<{ id: string }>;
     label: string;
@@ -144,6 +146,9 @@ export default function TodayPage() {
 
   const selectedDailyMenuOptionId = nutrition?.selection?.selectedDayOptionId ?? null;
   const selectedDailyMenuOption = dailyMenuOptions.find((option) => option.optionId === selectedDailyMenuOptionId) ?? null;
+  const hasNutritionPlan =
+    nutrition?.hasNutritionPlan ??
+    Boolean(nutrition?.day || (nutrition?.menuOptions && nutrition.menuOptions.length > 0));
 
   useEffect(() => {
     const idx = dailyMenuOptions.findIndex((item) => item.optionId === selectedDailyMenuOptionId);
@@ -151,6 +156,8 @@ export default function TodayPage() {
   }, [dailyMenuOptions, selectedDailyMenuOptionId]);
 
   async function saveSelection(patch: { selectedDayOptionId?: string; done?: boolean }) {
+    if (!hasNutritionPlan) return;
+
     const current = nutrition?.selection;
     const payload = {
       dateISO: selectedIsoDate,
@@ -192,7 +199,7 @@ export default function TodayPage() {
     );
   }
 
-  if (!nutrition?.day) {
+  if (workout?.noPlan || nutrition?.noPlan) {
     return <NoPlanState />;
   }
 
@@ -213,13 +220,15 @@ export default function TodayPage() {
             />
           </div>
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2">
-            <button type="button" className="flex w-full items-center justify-between" onClick={() => setIsSheetOpen(true)}>
-              <p className="font-semibold text-[var(--foreground)]">Menu</p>
-              <span className={["rounded-full px-2 py-0.5 text-[10px] font-semibold", selectedDailyMenuOption ? "bg-emerald-100 text-emerald-700" : "bg-zinc-200 text-zinc-600"].join(" ")}>
-                {selectedDailyMenuOption ? "OK" : "PEND"}
-              </span>
-            </button>
-            <Link href="/workout" className="mt-2 flex items-center justify-between">
+            {hasNutritionPlan ? (
+              <button type="button" className="flex w-full items-center justify-between" onClick={() => setIsSheetOpen(true)}>
+                <p className="font-semibold text-[var(--foreground)]">Menu</p>
+                <span className={["rounded-full px-2 py-0.5 text-[10px] font-semibold", selectedDailyMenuOption ? "bg-emerald-100 text-emerald-700" : "bg-zinc-200 text-zinc-600"].join(" ")}>
+                  {selectedDailyMenuOption ? "OK" : "PEND"}
+                </span>
+              </button>
+            ) : null}
+            <Link href="/workout" className={[hasNutritionPlan ? "mt-2" : "", "flex items-center justify-between"].join(" ").trim()}>
               <p className="font-semibold text-[var(--foreground)]">{trainingLabel}</p>
               <span className={["rounded-full px-2 py-0.5 text-[10px] font-semibold", trainingStatusOk ? "bg-emerald-100 text-emerald-700" : "bg-zinc-200 text-zinc-600"].join(" ")}>
                 {trainingStatusOk ? "OK" : "PEND"}
@@ -229,77 +238,81 @@ export default function TodayPage() {
         </div>
       </section>
 
-      <Card title="Menu completo del dia">
-        {selectedDailyMenuOption ? (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3">
-            <p className="text-sm font-semibold text-[var(--foreground)]">
-              Opcion {Math.min(currentOptionIndex, Math.max(0, dailyMenuOptions.length - 1)) + 1}
-            </p>
-            <ul className="mt-2 space-y-2 text-xs text-zinc-700">
-              {selectedDailyMenuOption.meals.map((meal) => (
-                <li key={meal.mealType}>
-                  <p className="font-medium text-[var(--foreground)]">{meal.mealType}</p>
-                  <p className="text-[var(--muted)]">{meal.lines.join(" | ")}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--muted)]">Sin menu seleccionado.</p>
-        )}
-
-        <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            className="rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white"
-            onClick={() => setIsSheetOpen(true)}
-          >
-            Elegir menu
-          </button>
-          <button
-            type="button"
-            className={["rounded-xl px-3 py-2 text-sm font-semibold", nutrition.selection?.done ? "bg-emerald-600 text-white" : "bg-zinc-200 text-zinc-800"].join(" ")}
-            onClick={() => void saveSelection({ done: !nutrition.selection?.done })}
-          >
-            {nutrition.selection?.done ? "Hecho" : "Marcar hecho"}
-          </button>
-        </div>
-      </Card>
-
-      <BottomSheet open={isSheetOpen} title="Elegir menu diario" onClose={() => setIsSheetOpen(false)}>
-        {dailyMenuOptions.length === 0 || !currentOption ? (
-          <p className="text-sm text-[var(--muted)]">No hay opciones.</p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
-              <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-soft)]" onClick={() => setCurrentOptionIndex((prev) => (prev === 0 ? dailyMenuOptions.length - 1 : prev - 1))}>{"<"}</button>
-              <div className="text-center text-sm font-semibold">Opcion {currentOptionIndex + 1}</div>
-              <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-soft)]" onClick={() => setCurrentOptionIndex((prev) => (prev + 1) % dailyMenuOptions.length)}>{">"}</button>
-            </div>
-
-            <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
-              <div className="space-y-2 text-[12px] text-[var(--muted)]">
-                {currentOption.meals.map((meal) => (
-                  <div key={`${meal.mealType}-${currentOption.optionId}`}>
-                    <p className="font-semibold text-[var(--foreground)]">{meal.mealType}</p>
-                    <p>{meal.lines.join(" | ")}</p>
-                  </div>
+      {hasNutritionPlan ? (
+        <Card title="Menu completo del dia">
+          {selectedDailyMenuOption ? (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3">
+              <p className="text-sm font-semibold text-[var(--foreground)]">
+                Opcion {Math.min(currentOptionIndex, Math.max(0, dailyMenuOptions.length - 1)) + 1}
+              </p>
+              <ul className="mt-2 space-y-2 text-xs text-zinc-700">
+                {selectedDailyMenuOption.meals.map((meal) => (
+                  <li key={meal.mealType}>
+                    <p className="font-medium text-[var(--foreground)]">{meal.mealType}</p>
+                    <p className="text-[var(--muted)]">{meal.lines.join(" | ")}</p>
+                  </li>
                 ))}
-              </div>
-              <button
-                type="button"
-                className="mt-4 w-full rounded-full bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white"
-                onClick={() => {
-                  void saveSelection({ selectedDayOptionId: currentOption.optionId });
-                  setIsSheetOpen(false);
-                }}
-              >
-                Seleccionar menu
-              </button>
+              </ul>
             </div>
+          ) : (
+            <p className="text-sm text-[var(--muted)]">Sin menu seleccionado.</p>
+          )}
+
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              className="rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white"
+              onClick={() => setIsSheetOpen(true)}
+            >
+              Elegir menu
+            </button>
+            <button
+              type="button"
+              className={["rounded-xl px-3 py-2 text-sm font-semibold", nutrition?.selection?.done ? "bg-emerald-600 text-white" : "bg-zinc-200 text-zinc-800"].join(" ")}
+              onClick={() => void saveSelection({ done: !nutrition?.selection?.done })}
+            >
+              {nutrition?.selection?.done ? "Hecho" : "Marcar hecho"}
+            </button>
           </div>
-        )}
-      </BottomSheet>
+        </Card>
+      ) : null}
+
+      {hasNutritionPlan ? (
+        <BottomSheet open={isSheetOpen} title="Elegir menu diario" onClose={() => setIsSheetOpen(false)}>
+          {dailyMenuOptions.length === 0 || !currentOption ? (
+            <p className="text-sm text-[var(--muted)]">No hay opciones.</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-4">
+                <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-soft)]" onClick={() => setCurrentOptionIndex((prev) => (prev === 0 ? dailyMenuOptions.length - 1 : prev - 1))}>{"<"}</button>
+                <div className="text-center text-sm font-semibold">Opcion {currentOptionIndex + 1}</div>
+                <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-soft)]" onClick={() => setCurrentOptionIndex((prev) => (prev + 1) % dailyMenuOptions.length)}>{">"}</button>
+              </div>
+
+              <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
+                <div className="space-y-2 text-[12px] text-[var(--muted)]">
+                  {currentOption.meals.map((meal) => (
+                    <div key={`${meal.mealType}-${currentOption.optionId}`}>
+                      <p className="font-semibold text-[var(--foreground)]">{meal.mealType}</p>
+                      <p>{meal.lines.join(" | ")}</p>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="mt-4 w-full rounded-full bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white"
+                  onClick={() => {
+                    void saveSelection({ selectedDayOptionId: currentOption.optionId });
+                    setIsSheetOpen(false);
+                  }}
+                >
+                  Seleccionar menu
+                </button>
+              </div>
+            </div>
+          )}
+        </BottomSheet>
+      ) : null}
     </div>
   );
 }

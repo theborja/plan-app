@@ -27,23 +27,30 @@ function getRequiredSheet(workbook: XLSX.WorkBook, sheetName: string): XLSX.Work
   return sheet;
 }
 
+function getOptionalSheet(workbook: XLSX.WorkBook, sheetName: string): XLSX.WorkSheet | null {
+  return workbook.Sheets[sheetName] ?? null;
+}
+
 export function parseWorkbookToPlanV1(
   workbook: XLSX.WorkBook,
   sourceFileName: string,
   debug?: ParseWorkbookDebug,
 ): PlanV1 {
-  const nutritionSheet = getRequiredSheet(workbook, "PLAN NUTRICIONAL");
   const trainingSheet = getRequiredSheet(workbook, "PLAN ENTRENAMIENTO");
+  const nutritionSheet = getOptionalSheet(workbook, "PLAN NUTRICIONAL");
 
-  const nutritionMatrix = toSheetMatrix(nutritionSheet);
   const trainingMatrix = toSheetMatrix(trainingSheet);
-
   const nutritionDebug: ParsePlanNutricionalDebug = {};
-  const nutrition = parsePlanNutricional(nutritionMatrix, nutritionDebug);
+  const nutrition = nutritionSheet
+    ? parsePlanNutricional(toSheetMatrix(nutritionSheet), nutritionDebug)
+    : {
+        cycleWeeks: 1,
+        days: [],
+      };
   const training = parsePlanEntrenamiento(trainingMatrix);
 
   if (debug) {
-    debug.nutrition = nutritionDebug;
+    debug.nutrition = nutritionSheet ? nutritionDebug : undefined;
   }
 
   return {

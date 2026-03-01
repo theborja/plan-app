@@ -155,15 +155,20 @@ function parseExerciseRow(row: unknown[], dayNumber: number, exerciseOrder: numb
   const repsRaw = asCellText(row[6]);
   const restRaw = asCellText(row[7]);
 
-  if (!setsRaw || !repsRaw || !restRaw) {
+  if (!setsRaw || !repsRaw) {
     return null;
   }
 
   const sets = parseSets(setsRaw);
   const reps = parseReps(repsRaw);
-  const restSeconds = parseRestSeconds(restRaw);
+  const restSeconds = restRaw ? parseRestSeconds(restRaw) : null;
 
-  if (sets === null || reps === null || restSeconds === null) {
+  if (sets === null || reps === null) {
+    return null;
+  }
+
+  // If rest was provided but could not be parsed, skip the row to avoid bad data.
+  if (restRaw && restSeconds === null) {
     return null;
   }
 
