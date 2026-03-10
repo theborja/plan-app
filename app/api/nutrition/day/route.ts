@@ -5,6 +5,68 @@ import { resolveNutritionDayFromDb } from "@/lib/services/dayResolvers";
 import { ensureUserSettings, getActivePlanWithRelations } from "@/lib/services/planService";
 import { isIsoDate, jsonError, requireAuth } from "@/lib/serverApi";
 
+function buildMenuOptions(
+  nutritionDays: NonNullable<Awaited<ReturnType<typeof getActivePlanWithRelations>>>["nutritionDays"],
+) {
+  return nutritionDays
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .flatMap((day) => {
+      const byMeal: Record<MealType, Array<{ id: string; title: string; lines: string[] }>> = {
+        DESAYUNO: [],
+        ALMUERZO: [],
+        COMIDA: [],
+        MERIENDA: [],
+        CENA: [],
+        POSTRE: [],
+      };
+
+      for (const option of day.mealOptions) {
+        byMeal[option.mealType].push({
+          id: option.id,
+          title: option.title,
+          lines: option.lines.map((line) => line.content),
+        });
+      }
+
+      const maxOptions = Math.max(...Object.values(byMeal).map((items) => items.length), 0);
+      return Array.from({ length: maxOptions }, (_, idx) => {
+        const meals = (Object.entries(byMeal) as Array<[MealType, Array<{ id: string; title: string; lines: string[] }>]>)
+          .map(([mealType, options]) => ({ mealType, option: options[idx] }))
+          .filter((entry): entry is { mealType: MealType; option: { id: string; title: string; lines: string[] } } => !!entry.option)
+          .map((entry) => ({ mealType: entry.mealType, lines: entry.option.lines }));
+
+        const representativeOption = meals.length > 0
+          ? (Object.values(byMeal).map((options) => options[idx]).find(Boolean) ?? null)
+          : null;
+
+        return {
+          optionId: representativeOption?.id ?? `${day.id}-${idx + 1}`,
+          optionLabel: `W${day.weekIndex}-${day.dayOfWeek} - Opcion ${idx + 1}`,
+          meals,
+        };
+      });
+    });
+}
+
+function toSelectionPayload(selection: {
+  selectedDayOptionId: string | null;
+  done: boolean;
+  note: string | null;
+  updatedAt: Date;
+} | null) {
+  if (!selection) {
+    return null;
+  }
+
+  return {
+    selectedDayOptionId: selection.selectedDayOptionId,
+    done: selection.done,
+    note: selection.note ?? "",
+    updatedAt: selection.updatedAt,
+  };
+}
+
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
   if (auth.response) return auth.response;
@@ -40,6 +102,11 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const menuOptions = buildMenuOptions(activePlan.nutritionDays);
+  const selection = await prisma.mealSelectionLog.findUnique({
+    where: { userId_dateISO: { userId, dateISO } },
+  });
+
   const cycleWeeks = Math.max(1, Math.max(...activePlan.nutritionDays.map((day) => day.weekIndex), 1));
   const nutritionDay = resolveNutritionDayFromDb(
     activePlan.nutritionDays.map((day) => ({ id: day.id, weekIndex: day.weekIndex, dayOfWeek: day.dayOfWeek })),
@@ -54,16 +121,12 @@ export async function GET(request: NextRequest) {
       noPlan: false,
       hasNutritionPlan: true,
       day: null,
-      selection: null,
-      menuOptions: [],
+      selection: toSelectionPayload(selection),
+      menuOptions,
     });
   }
 
   const fullDay = activePlan.nutritionDays.find((item) => item.id === nutritionDay.id)!;
-  const selection = await prisma.mealSelectionLog.findUnique({
-    where: { userId_dateISO: { userId, dateISO } },
-  });
-
   const meals: Record<MealType, Array<{ id: string; title: string; lines: string[] }>> = {
     DESAYUNO: [],
     ALMUERZO: [],
@@ -81,46 +144,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const menuOptions = activePlan.nutritionDays
-    .slice()
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .flatMap((day) => {
-      const byMeal: Record<MealType, Array<{ id: string; title: string; lines: string[] }>> = {
-        DESAYUNO: [],
-        ALMUERZO: [],
-        COMIDA: [],
-        MERIENDA: [],
-        CENA: [],
-        POSTRE: [],
-      };
-
-      for (const option of day.mealOptions) {
-        byMeal[option.mealType].push({
-          id: option.id,
-          title: option.title,
-          lines: option.lines.map((line) => line.content),
-        });
-      }
-
-      const maxOptions = Math.max(...Object.values(byMeal).map((items) => items.length), 0);
-      return Array.from({ length: maxOptions }, (_, idx) => {
-        const meals = (Object.entries(byMeal) as Array<[MealType, Array<{ id: string; title: string; lines: string[] }>]>)
-          .map(([mealType, options]) => ({ mealType, option: options[idx] }))
-          .filter((entry): entry is { mealType: MealType; option: { id: string; title: string; lines: string[] } } => !!entry.option)
-          .map((entry) => ({ mealType: entry.mealType, lines: entry.option.lines }));
-
-        const representativeOption = meals.length > 0
-          ? (Object.values(byMeal).map((options) => options[idx]).find(Boolean) ?? null)
-          : null;
-
-        return {
-          optionId: representativeOption?.id ?? `${day.id}-${idx + 1}`,
-          optionLabel: `W${day.weekIndex}-${day.dayOfWeek} · Opcion ${idx + 1}`,
-          meals,
-        };
-      });
-    });
-
   return NextResponse.json({
     ok: true,
     noPlan: false,
@@ -131,14 +154,7 @@ export async function GET(request: NextRequest) {
       dayOfWeek: fullDay.dayOfWeek,
       meals,
     },
-    selection: selection
-      ? {
-          selectedDayOptionId: selection.selectedDayOptionId,
-          done: selection.done,
-          note: selection.note ?? "",
-          updatedAt: selection.updatedAt,
-        }
-      : null,
+    selection: toSelectionPayload(selection),
     menuOptions,
   });
 }
