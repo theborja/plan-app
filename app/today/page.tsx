@@ -145,15 +145,29 @@ export default function TodayPage() {
   }, [nutrition]);
 
   const selectedDailyMenuOptionId = nutrition?.selection?.selectedDayOptionId ?? null;
+  const selectedDailyMenuOptionIndex = dailyMenuOptions.findIndex((option) => option.optionId === selectedDailyMenuOptionId);
   const selectedDailyMenuOption = dailyMenuOptions.find((option) => option.optionId === selectedDailyMenuOptionId) ?? null;
   const hasNutritionPlan =
     nutrition?.hasNutritionPlan ??
     Boolean(nutrition?.day || (nutrition?.menuOptions && nutrition.menuOptions.length > 0));
 
   useEffect(() => {
-    const idx = dailyMenuOptions.findIndex((item) => item.optionId === selectedDailyMenuOptionId);
-    setCurrentOptionIndex(idx >= 0 ? idx : 0);
-  }, [dailyMenuOptions, selectedDailyMenuOptionId]);
+    setCurrentOptionIndex(selectedDailyMenuOptionIndex >= 0 ? selectedDailyMenuOptionIndex : 0);
+  }, [dailyMenuOptions, selectedDailyMenuOptionIndex]);
+
+  function syncCurrentOptionToSelection() {
+    setCurrentOptionIndex(selectedDailyMenuOptionIndex >= 0 ? selectedDailyMenuOptionIndex : 0);
+  }
+
+  function openMenuSheet() {
+    syncCurrentOptionToSelection();
+    setIsSheetOpen(true);
+  }
+
+  function closeMenuSheet() {
+    syncCurrentOptionToSelection();
+    setIsSheetOpen(false);
+  }
 
   async function saveSelection(patch: { selectedDayOptionId?: string; done?: boolean }) {
     if (!hasNutritionPlan) return;
@@ -203,7 +217,8 @@ export default function TodayPage() {
     return <NoPlanState />;
   }
 
-  const currentOption = dailyMenuOptions[Math.min(currentOptionIndex, Math.max(0, dailyMenuOptions.length - 1))];
+  const clampedCurrentOptionIndex = Math.min(currentOptionIndex, Math.max(0, dailyMenuOptions.length - 1));
+  const currentOption = dailyMenuOptions[clampedCurrentOptionIndex];
 
   return (
     <div className="space-y-4">
@@ -221,7 +236,7 @@ export default function TodayPage() {
           </div>
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2">
             {hasNutritionPlan ? (
-              <button type="button" className="flex w-full items-center justify-between" onClick={() => setIsSheetOpen(true)}>
+              <button type="button" className="flex w-full items-center justify-between" onClick={openMenuSheet}>
                 <p className="font-semibold text-[var(--foreground)]">Menu</p>
                 <span className={["rounded-full px-2 py-0.5 text-[10px] font-semibold", selectedDailyMenuOption ? "bg-emerald-100 text-emerald-700" : "bg-zinc-200 text-zinc-600"].join(" ")}>
                   {selectedDailyMenuOption ? "OK" : "PEND"}
@@ -243,7 +258,7 @@ export default function TodayPage() {
           {selectedDailyMenuOption ? (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3">
               <p className="text-sm font-semibold text-[var(--foreground)]">
-                Opcion {Math.min(currentOptionIndex, Math.max(0, dailyMenuOptions.length - 1)) + 1}
+                Opcion {selectedDailyMenuOptionIndex + 1}
               </p>
               <ul className="mt-2 space-y-2 text-xs text-zinc-700">
                 {selectedDailyMenuOption.meals.map((meal) => (
@@ -262,7 +277,7 @@ export default function TodayPage() {
             <button
               type="button"
               className="rounded-xl bg-gradient-to-r from-[var(--primary-start)] to-[var(--primary-end)] px-3 py-2 text-sm font-semibold text-white"
-              onClick={() => setIsSheetOpen(true)}
+              onClick={openMenuSheet}
             >
               Elegir menu
             </button>
@@ -278,14 +293,14 @@ export default function TodayPage() {
       ) : null}
 
       {hasNutritionPlan ? (
-        <BottomSheet open={isSheetOpen} title="Elegir menu diario" onClose={() => setIsSheetOpen(false)}>
+        <BottomSheet open={isSheetOpen} title="Elegir menu diario" onClose={closeMenuSheet}>
           {dailyMenuOptions.length === 0 || !currentOption ? (
             <p className="text-sm text-[var(--muted)]">No hay opciones.</p>
           ) : (
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-4">
                 <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-soft)]" onClick={() => setCurrentOptionIndex((prev) => (prev === 0 ? dailyMenuOptions.length - 1 : prev - 1))}>{"<"}</button>
-                <div className="text-center text-sm font-semibold">Opcion {currentOptionIndex + 1}</div>
+                <div className="text-center text-sm font-semibold">Opcion {clampedCurrentOptionIndex + 1}</div>
                 <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-soft)]" onClick={() => setCurrentOptionIndex((prev) => (prev + 1) % dailyMenuOptions.length)}>{">"}</button>
               </div>
 
