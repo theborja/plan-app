@@ -4,6 +4,103 @@ import { resolveTrainingDayFromDb } from "@/lib/services/dayResolvers";
 import { ensureUserSettings, getActivePlanWithRelations } from "@/lib/services/planService";
 import { isIsoDate, jsonError, requireAuth } from "@/lib/serverApi";
 
+type LatestWeightLog = { setNumber: number; weightKg: number | null };
+type LatestWeightsByExerciseId = Record<string, LatestWeightLog[]>;
+type WorkoutExercise = {
+  id: string;
+  name: string;
+};
+
+async function getPreviousPlanWeightsFallback(params: {
+  userId: string;
+  activePlanId: string;
+  activePlanImportedAt: Date;
+  dateISO: string;
+  exercises: WorkoutExercise[];
+  currentWeightsByExerciseId: LatestWeightsByExerciseId;
+}) {
+  const missingExercises = params.exercises.filter(
+    (exercise) => (params.currentWeightsByExerciseId[exercise.id] ?? []).length === 0,
+  );
+  if (missingExercises.length === 0) {
+    return { weightsByExerciseId: params.currentWeightsByExerciseId, fallbackDateISO: null };
+  }
+
+  const exerciseNames = [...new Set(missingExercises.map((exercise) => exercise.name))];
+  const previousPlan = await prisma.userPlan.findFirst({
+    where: {
+      userId: params.userId,
+      id: { not: params.activePlanId },
+      isActive: false,
+      importedAt: { lt: params.activePlanImportedAt },
+    },
+    orderBy: { importedAt: "desc" },
+    select: { id: true },
+  });
+
+  if (!previousPlan) {
+    return { weightsByExerciseId: params.currentWeightsByExerciseId, fallbackDateISO: null };
+  }
+
+  const previousLogs = await prisma.exerciseSetLog.findMany({
+    where: {
+      weightKg: { not: null },
+      session: {
+        userId: params.userId,
+        planId: previousPlan.id,
+        dateISO: { not: params.dateISO },
+      },
+      exercise: {
+        name: { in: exerciseNames },
+        trainingDay: { planId: previousPlan.id },
+      },
+    },
+    orderBy: [
+      { session: { dateISO: "desc" } },
+      { exerciseId: "asc" },
+      { setNumber: "asc" },
+    ],
+    select: {
+      setNumber: true,
+      weightKg: true,
+      session: { select: { dateISO: true } },
+      exercise: { select: { name: true } },
+    },
+  });
+
+  const fallbackByExerciseName = new Map<string, { dateISO: string; logs: LatestWeightLog[] }>();
+  for (const log of previousLogs) {
+    const exerciseName = log.exercise.name;
+    const existing = fallbackByExerciseName.get(exerciseName);
+    if (!existing) {
+      fallbackByExerciseName.set(exerciseName, {
+        dateISO: log.session.dateISO,
+        logs: [{ setNumber: log.setNumber, weightKg: log.weightKg }],
+      });
+      continue;
+    }
+
+    if (existing.dateISO === log.session.dateISO) {
+      existing.logs.push({ setNumber: log.setNumber, weightKg: log.weightKg });
+    }
+  }
+
+  let fallbackDateISO: string | null = null;
+  const weightsByExerciseId: LatestWeightsByExerciseId = { ...params.currentWeightsByExerciseId };
+
+  for (const exercise of missingExercises) {
+    const fallback = fallbackByExerciseName.get(exercise.name);
+    if (!fallback) continue;
+
+    weightsByExerciseId[exercise.id] = fallback.logs;
+    if (!fallbackDateISO || fallback.dateISO > fallbackDateISO) {
+      fallbackDateISO = fallback.dateISO;
+    }
+  }
+
+  return { weightsByExerciseId, fallbackDateISO };
+}
+
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
   if (auth.response) return auth.response;
@@ -111,6 +208,16 @@ export async function GET(request: NextRequest) {
     },
     {},
   );
+  const latestWeightsFallback = await getPreviousPlanWeightsFallback({
+    userId,
+    activePlanId: activePlan.id,
+    activePlanImportedAt: activePlan.importedAt,
+    dateISO,
+    exercises: fullDay.exercises.map((exercise) => ({ id: exercise.id, name: exercise.name })),
+    currentWeightsByExerciseId: latestSameTrainingSetLogsByExerciseId,
+  });
+  const latestWeightsByExerciseId = latestWeightsFallback.weightsByExerciseId;
+  const hasLatestWeights = Object.values(latestWeightsByExerciseId).some((logs) => logs.length > 0);
 
   return NextResponse.json({
     ok: true,
@@ -139,10 +246,10 @@ export async function GET(request: NextRequest) {
     settings,
     planId: activePlan.id,
     latestSameTrainingWeights:
-      latestSameTrainingSessionWithWeights
+      hasLatestWeights
         ? {
-            dateISO: latestSameTrainingSessionWithWeights.dateISO,
-            setLogsByExerciseId: latestSameTrainingSetLogsByExerciseId,
+            dateISO: latestSameTrainingSessionWithWeights?.dateISO ?? latestWeightsFallback.fallbackDateISO,
+            setLogsByExerciseId: latestWeightsByExerciseId,
           }
         : null,
     latestSameTrainingNote:
